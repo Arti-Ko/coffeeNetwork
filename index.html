@@ -14,6 +14,12 @@
 
     <div class="titlebar" data-tauri-drag-region></div>
 
+    <button id="settingsBtn" class="settings-btn" title="Настройки" aria-label="Настройки">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.4 3.5c0-.5 0-1-.1-1.4l1.8-1.4-1.9-3.3-2.1.9c-.7-.6-1.5-1-2.4-1.3L13.4 2h-2.8l-.4 2.2c-.9.3-1.7.7-2.4 1.3l-2.1-.9-1.9 3.3 1.8 1.4c-.1.4-.1.9-.1 1.4s0 1 .1 1.4L1.9 14.8l1.9 3.3 2.1-.9c.7.6 1.5 1 2.4 1.3l.4 2.5h2.8l.4-2.2c.9-.3 1.7-.7 2.4-1.3l2.1.9 1.9-3.3-1.8-1.4c.1-.4.1-.9.1-1.4Z"/>
+      </svg>
+    </button>
+
     <main class="app">
       <!-- ===================== LEFT: boarding-pass cockpit ===================== -->
       <section class="ticket glass">
@@ -128,6 +134,66 @@
     </main>
 
     <div id="toast" class="toast mono" hidden></div>
+
+    <!-- ===================== UPDATE DIALOG ===================== -->
+    <div id="updateModal" class="modal" hidden>
+      <div class="modal__backdrop"></div>
+      <div class="modal__card glass" role="dialog" aria-labelledby="updTitle" aria-modal="true">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--br"></span>
+        <div class="modal__badge mono">ОБНОВЛЕНИЕ ДОСТУПНО</div>
+        <h3 class="modal__title" id="updTitle">
+          coffeeNetwork <span class="modal__ver" id="updVersion">—</span>
+        </h3>
+        <div class="modal__sub mono" id="updFrom"></div>
+        <div class="modal__notes" id="updNotes"></div>
+        <div class="modal__actions">
+          <button id="updNow" class="btn-solid mono">Обновить сейчас</button>
+          <button id="updLater" class="btn-ghost mono">В следующий раз</button>
+          <button id="updSkip" class="btn-ghost mono">Пропустить версию</button>
+        </div>
+        <div class="modal__progress mono" id="updProgress" hidden>ЗАГРУЗКА…</div>
+      </div>
+    </div>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <div id="settingsModal" class="modal" hidden>
+      <div class="modal__backdrop" data-close></div>
+      <div class="modal__card glass" role="dialog" aria-labelledby="setTitle" aria-modal="true">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--br"></span>
+        <button class="modal__x" data-close aria-label="Закрыть">✕</button>
+        <div class="modal__badge mono">НАСТРОЙКИ</div>
+        <h3 class="modal__title" id="setTitle">coffeeNetwork</h3>
+
+        <section class="set">
+          <div class="set__label mono">ВЕРСИЯ И ОБНОВЛЕНИЯ</div>
+          <div class="set__row">
+            <span class="set__ver mono">v<span id="setVersion">…</span></span>
+            <button id="setCheckUpd" class="btn-ghost mono">Проверить обновления</button>
+          </div>
+          <div id="setUpdMsg" class="set__msg mono"></div>
+        </section>
+
+        <section class="set">
+          <div class="set__label mono">ТЕМА</div>
+          <div class="seg seg--3 mono" id="themeSeg" role="group" aria-label="Тема">
+            <button class="seg-btn" data-theme="dark">ТЁМНАЯ</button>
+            <button class="seg-btn" data-theme="light">СВЕТЛАЯ</button>
+            <button class="seg-btn" data-theme="system">СИСТЕМА</button>
+          </div>
+        </section>
+
+        <section class="set">
+          <div class="set__label mono">АКЦЕНТ</div>
+          <div class="swatches" id="swatches"></div>
+          <label class="set__custom mono">
+            <span>Свой цвет</span>
+            <input type="color" id="accentCustom" value="#e8a33d" />
+          </label>
+        </section>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -13,6 +13,19 @@ pub struct Settings {
     pub mode: Mode,
     pub bypass_ru: bool,
     pub active_server: Option<String>,
+    /// Accent: a named preset ("amber", "teal", …) or a hex color ("#rrggbb").
+    #[serde(default = "default_accent")]
+    pub accent: String,
+    /// Theme: "dark" | "light" | "system".
+    #[serde(default = "default_theme")]
+    pub theme: String,
+}
+
+fn default_accent() -> String {
+    "amber".to_string()
+}
+fn default_theme() -> String {
+    "dark".to_string()
 }
 
 impl Default for Settings {
@@ -21,6 +34,8 @@ impl Default for Settings {
             mode: Mode::SystemProxy,
             bypass_ru: true,
             active_server: None,
+            accent: default_accent(),
+            theme: default_theme(),
         }
     }
 }

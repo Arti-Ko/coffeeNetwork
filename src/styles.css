@@ -24,10 +24,19 @@
   --hair: oklch(90% 0.01 80 / 0.1);
   --hair-2: oklch(90% 0.01 80 / 0.06);
 
-  /* accent — warm crema amber */
+  /* accent — warm crema amber (overridable at runtime: accent picker) */
   --accent: oklch(78% 0.15 72);
   --accent-soft: oklch(78% 0.15 72 / 0.16);
   --accent-ink: oklch(16% 0.02 60);
+
+  /* surface overlays — "lift" lightens on dark; recess = inset wells.
+     The light theme flips these so hovers/inputs stay visible. */
+  --lift-1: oklch(96% 0.01 80 / 0.04);
+  --lift-2: oklch(96% 0.01 80 / 0.07);
+  --lift-3: oklch(96% 0.01 80 / 0.12);
+  --recess: oklch(10% 0.006 60 / 0.58);
+  --recess-deep: oklch(8% 0.005 60 / 0.7);
+  --toast-bg: oklch(22% 0.012 60 / 0.92);
 
   --r: 20px;
   --r-sm: 11px;
@@ -318,7 +327,7 @@ body {
   gap: 12px;
   width: 100%;
   border: 1px solid var(--edge);
-  background: oklch(96% 0.01 80 / 0.06);
+  background: var(--lift-2);
   color: var(--ink);
   border-radius: var(--r-sm);
   padding: 16px 18px;
@@ -332,7 +341,7 @@ body {
 }
 .connect:hover {
   transform: translateY(-1px);
-  background: oklch(96% 0.01 80 / 0.1);
+  background: var(--lift-3);
   border-color: var(--edge-hi);
 }
 .connect:active {
@@ -395,7 +404,7 @@ body {
 }
 .seg-btn {
   border: none;
-  background: oklch(96% 0.01 80 / 0.03);
+  background: var(--lift-1);
   color: var(--ink-faint);
   font-family: var(--mono);
   font-size: 10px;
@@ -406,7 +415,7 @@ body {
 }
 .seg-btn:hover { color: var(--ink-dim); }
 .seg-btn.active {
-  background: oklch(96% 0.01 80 / 0.12);
+  background: var(--lift-3);
   color: var(--ink);
 }
 
@@ -528,7 +537,7 @@ body {
 .btn-ghost:hover {
   border-color: var(--edge);
   color: var(--ink);
-  background: oklch(96% 0.01 80 / 0.04);
+  background: var(--lift-1);
 }
 .btn-solid {
   background: var(--accent);
@@ -553,7 +562,7 @@ body {
 }
 .import textarea {
   resize: vertical;
-  background: oklch(10% 0.006 60 / 0.6);
+  background: var(--recess);
   border: 1px solid var(--hair);
   border-radius: var(--r-sm);
   color: var(--ink);
@@ -608,11 +617,11 @@ body {
   transition: background var(--dur), padding-left var(--dur) var(--ease);
 }
 .srv:hover {
-  background: oklch(96% 0.01 80 / 0.04);
+  background: var(--lift-1);
   padding-left: 12px;
 }
 .srv.selected {
-  background: oklch(96% 0.01 80 / 0.06);
+  background: var(--lift-2);
   box-shadow: inset 2px 0 0 var(--ink-dim);
 }
 .srv.active-srv {
@@ -627,7 +636,7 @@ body {
   border: 1px solid var(--hair);
   border-radius: 6px;
   color: var(--ink-faint);
-  background: oklch(10% 0.006 60 / 0.5);
+  background: var(--recess);
   flex-shrink: 0;
   min-width: 64px;
   text-align: center;
@@ -672,7 +681,7 @@ body {
 }
 .icon-btn:hover {
   color: var(--ink);
-  background: oklch(96% 0.01 80 / 0.08);
+  background: var(--lift-2);
 }
 .icon-btn.del:hover { color: var(--accent); }
 
@@ -701,7 +710,7 @@ body {
 
 .dump {
   margin-top: 10px;
-  background: oklch(8% 0.005 60 / 0.7);
+  background: var(--recess-deep);
   border: 1px solid var(--hair);
   border-radius: var(--r-sm);
   padding: 12px;
@@ -720,7 +729,7 @@ body {
   bottom: 22px;
   left: 50%;
   transform: translateX(-50%) translateY(12px);
-  background: oklch(22% 0.012 60 / 0.92);
+  background: var(--toast-bg);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border: 1px solid var(--edge);
@@ -751,4 +760,255 @@ body {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* =========================================================================
+   LIGHT THEME — flips depth, ink, surfaces. Toggled via [data-theme="light"]
+   on <html>. Accent stays the user's chosen hue.
+   ========================================================================= */
+[data-theme="light"] {
+  --d-0: oklch(96.5% 0.004 85);
+  --d-1: oklch(93% 0.006 85);
+  --glass: oklch(100% 0 0 / 0.66);
+  --glass-2: oklch(99% 0.003 85 / 0.55);
+  --glass-hi: oklch(100% 0 0 / 0.85);
+
+  --edge: oklch(32% 0.02 70 / 0.16);
+  --edge-hi: oklch(45% 0.02 70 / 0.30);
+  --edge-lo: oklch(32% 0.02 70 / 0.07);
+
+  --ink: oklch(26% 0.014 70);
+  --ink-dim: oklch(43% 0.016 70);
+  --ink-faint: oklch(56% 0.016 70);
+  --hair: oklch(28% 0.02 70 / 0.13);
+  --hair-2: oklch(28% 0.02 70 / 0.07);
+
+  --lift-1: oklch(30% 0.02 70 / 0.05);
+  --lift-2: oklch(30% 0.02 70 / 0.09);
+  --lift-3: oklch(30% 0.02 70 / 0.15);
+  --recess: oklch(100% 0 0 / 0.6);
+  --recess-deep: oklch(99% 0.003 85 / 0.72);
+  --toast-bg: oklch(99% 0.003 85 / 0.94);
+}
+[data-theme="light"] body { background: var(--d-0); }
+[data-theme="light"] .bg {
+  background:
+    radial-gradient(90% 60% at 12% -5%, oklch(93% 0.03 80 / 0.65) 0%, transparent 55%),
+    radial-gradient(80% 60% at 105% 110%, oklch(91% 0.04 45 / 0.5) 0%, transparent 55%),
+    var(--d-0);
+}
+[data-theme="light"] .bg__grain { opacity: 0.18; }
+[data-theme="light"] .glass {
+  box-shadow:
+    0 1px 0 0 oklch(100% 0 0 / 0.7) inset,
+    0 0 0 1px oklch(32% 0.02 70 / 0.08),
+    0 26px 60px -28px oklch(40% 0.05 60 / 0.30),
+    0 4px 14px oklch(40% 0.03 60 / 0.12);
+}
+
+/* =========================================================================
+   SETTINGS BUTTON (top-right, outside the drag region)
+   ========================================================================= */
+.settings-btn {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color var(--dur), background var(--dur), border-color var(--dur),
+    transform var(--dur) var(--ease);
+}
+.settings-btn svg { width: 17px; height: 17px; fill: currentColor; }
+.settings-btn:hover {
+  color: var(--ink);
+  background: var(--lift-2);
+  border-color: var(--edge);
+}
+.settings-btn:active { transform: rotate(35deg); }
+
+/* =========================================================================
+   MODALS (update dialog + settings)
+   ========================================================================= */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.modal[hidden] { display: none; }
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: fade var(--dur) var(--ease);
+}
+[data-theme="light"] .modal__backdrop { background: oklch(40% 0.02 70 / 0.28); }
+.modal__card {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 28px 26px 22px;
+  border-radius: var(--r);
+  animation: pop var(--dur) var(--ease);
+}
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+}
+.modal__x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--hair);
+  background: transparent;
+  color: var(--ink-faint);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color var(--dur), border-color var(--dur), background var(--dur);
+}
+.modal__x:hover { color: var(--ink); border-color: var(--edge); background: var(--lift-2); }
+.modal__badge {
+  display: inline-block;
+  font-size: 8.5px;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  padding: 5px 9px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.modal__title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.modal__ver { color: var(--accent); }
+.modal__sub {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  margin-bottom: 14px;
+}
+.modal__notes {
+  background: var(--recess);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  padding: 14px 16px;
+  margin: 6px 0 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.modal__notes:empty { display: none; }
+.modal__notes strong { color: var(--ink); font-weight: 600; }
+.modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.modal__actions .btn-solid,
+.modal__actions .btn-ghost { flex: 1 1 auto; }
+.modal__actions .btn-solid { flex-basis: 100%; padding: 12px; }
+.modal__progress {
+  margin-top: 14px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* settings sections */
+.set { margin-top: 22px; }
+.set:first-of-type { margin-top: 18px; }
+.set__label {
+  font-size: 8.5px;
+  letter-spacing: 0.22em;
+  color: var(--ink-faint);
+  margin-bottom: 11px;
+}
+.set__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.set__ver {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.set__msg {
+  margin-top: 9px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  min-height: 12px;
+}
+.set__msg.ok { color: var(--accent); }
+.set__msg.err { color: oklch(64% 0.2 25); }
+.seg--3 { grid-template-columns: 1fr 1fr 1fr; }
+.set__custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 9px 13px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+.set__custom input[type="color"] {
+  width: 34px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* accent swatches */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 9px;
+}
+.swatch {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--sw);
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur);
+}
+.swatch:hover { transform: scale(1.12); }
+.swatch.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--sw);
 }

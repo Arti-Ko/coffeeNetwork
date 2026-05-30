@@ -8,3 +8,6 @@ _*.txt
 # never commit signing keys
 *.key
 !*.pub
+
+# tsc artifact (vite bundles main.ts directly)
+src/main.js

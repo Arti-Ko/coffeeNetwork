@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 // ---------------------------------------------------------------------------
 // types (mirror the Rust structs)
@@ -26,13 +27,21 @@ interface Settings {
   mode: Mode;
   bypass_ru: boolean;
   active_server: string | null;
+  accent: string; // named preset ("amber"…) or hex "#rrggbb"
+  theme: string; // "dark" | "light" | "system"
 }
 
 // ---------------------------------------------------------------------------
 // state
 // ---------------------------------------------------------------------------
 let servers: Server[] = [];
-let settings: Settings = { mode: "system_proxy", bypass_ru: true, active_server: null };
+let settings: Settings = {
+  mode: "system_proxy",
+  bypass_ru: true,
+  active_server: null,
+  accent: "amber",
+  theme: "dark",
+};
 let status: Status = { running: false, active_server: null, mode: null, bypass_ru: true, core_path: null };
 let selectedId: string | null = null;
 let busy = false;
@@ -59,6 +68,75 @@ function esc(s: string): string {
   const d = document.createElement("div");
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// appearance — accent color + light/dark/system theme
+// ---------------------------------------------------------------------------
+/** Named accent presets → oklch (fixed L/C, varied hue). */
+const ACCENTS: Record<string, string> = {
+  amber: "oklch(78% 0.15 72)",
+  coffee: "oklch(62% 0.11 50)",
+  green: "oklch(76% 0.16 150)",
+  teal: "oklch(74% 0.13 195)",
+  blue: "oklch(70% 0.15 250)",
+  violet: "oklch(68% 0.18 300)",
+  pink: "oklch(72% 0.18 350)",
+  red: "oklch(64% 0.2 25)",
+};
+
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
+  const r = (n >> 16) & 255,
+    g = (n >> 8) & 255,
+    b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+/** Perceived luminance 0..1 to pick readable ink over a custom accent. */
+function luminance(hex: string): number {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
+  const r = ((n >> 16) & 255) / 255,
+    g = ((n >> 8) & 255) / 255,
+    b = (n & 255) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function applyAccent(value: string) {
+  const root = document.documentElement.style;
+  let accent: string, soft: string, ink: string;
+  if (value.startsWith("#")) {
+    accent = value;
+    soft = hexToRgba(value, 0.16);
+    ink = luminance(value) > 0.55 ? "oklch(18% 0.02 60)" : "oklch(97% 0.01 80)";
+  } else {
+    accent = ACCENTS[value] ?? ACCENTS.amber;
+    soft = accent.replace(/\)$/, " / 0.16)");
+    ink = "oklch(18% 0.02 60)";
+  }
+  root.setProperty("--accent", accent);
+  root.setProperty("--accent-soft", soft);
+  root.setProperty("--accent-ink", ink);
+}
+
+let themePref = "dark";
+const sysDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+function applyTheme(theme: string) {
+  themePref = theme;
+  const effective =
+    theme === "system" ? (sysDark.matches ? "dark" : "light") : theme;
+  document.documentElement.dataset.theme = effective;
+}
+sysDark.addEventListener("change", () => {
+  if (themePref === "system") applyTheme("system");
+});
+
+function applyAppearance(s: Settings) {
+  applyAccent(s.accent || "amber");
+  applyTheme(s.theme || "dark");
 }
 
 /** Short uppercase code shown in the hero (airport-board style). */
@@ -195,6 +273,7 @@ async function refresh() {
     invoke<Status>("status"),
   ]);
   if (!selectedId) selectedId = status.active_server ?? settings.active_server ?? servers[0]?.id ?? null;
+  applyAppearance(settings);
   render();
 }
 
@@ -371,7 +450,7 @@ function bind() {
 }
 
 // ---------------------------------------------------------------------------
-// auto-update
+// auto-update — pretty dialog: «Обновить сейчас / В следующий раз / Пропустить»
 // ---------------------------------------------------------------------------
 interface UpdateInfo {
   available: boolean;
@@ -379,26 +458,180 @@ interface UpdateInfo {
   notes: string | null;
 }
 
-async function checkForUpdate() {
+const SKIP_KEY = "cn.skipVersion";
+
+/** Render release notes: keep line breaks, bold the first line as a heading. */
+function renderNotes(notes: string | null): string {
+  if (!notes) return "Подробности об изменениях — на странице релиза на GitHub.";
+  const lines = notes.trim().split("\n");
+  const [head, ...rest] = lines;
+  return `<strong>${esc(head)}</strong>${rest.length ? "\n" + esc(rest.join("\n")) : ""}`;
+}
+
+function showUpdateModal(info: UpdateInfo) {
+  $("updVersion").textContent = info.version ?? "";
+  $("updFrom").textContent = `ТЕКУЩАЯ ВЕРСИЯ ${currentVersion}`;
+  $("updNotes").innerHTML = renderNotes(info.notes);
+  $("updProgress").hidden = true;
+  ($("updNow") as HTMLButtonElement).disabled = false;
+  $("updateModal").hidden = false;
+}
+
+function hideUpdateModal() {
+  $("updateModal").hidden = true;
+}
+
+async function runInstall() {
+  $("updProgress").hidden = false;
+  ($("updNow") as HTMLButtonElement).disabled = true;
+  ($("updLater") as HTMLButtonElement).disabled = true;
+  ($("updSkip") as HTMLButtonElement).disabled = true;
   try {
-    const info = await invoke<UpdateInfo>("check_update");
-    if (!info.available || !info.version) return;
-    const ok = window.confirm(
-      `Доступно обновление coffeeNetwork ${info.version}.\n\n` +
-        (info.notes ? info.notes + "\n\n" : "") +
-        "Установить и перезапустить сейчас?"
-    );
-    if (!ok) return;
-    toast(`Загрузка ${info.version}…`);
-    await invoke("install_update");
+    await invoke("install_update"); // downloads, installs and relaunches
   } catch (e) {
-    // offline or no release yet — not worth nagging the user about
-    console.warn("update check failed:", e);
+    toast(String(e), true);
+    hideUpdateModal();
+    ($("updLater") as HTMLButtonElement).disabled = false;
+    ($("updSkip") as HTMLButtonElement).disabled = false;
   }
 }
 
+/**
+ * @param manual true when triggered from Settings / tray — always reports a
+ * result and ignores the per-version skip list.
+ */
+async function checkForUpdate(manual = false) {
+  if (manual) setUpdMsg("Проверяю…");
+  try {
+    const info = await invoke<UpdateInfo>("check_update");
+    if (!info.available || !info.version) {
+      if (manual) setUpdMsg(`У вас последняя версия (${currentVersion})`, "ok");
+      return;
+    }
+    if (!manual && localStorage.getItem(SKIP_KEY) === info.version) return;
+    if (manual) setUpdMsg(`Доступна версия ${info.version}`, "ok");
+    showUpdateModal(info);
+  } catch (e) {
+    if (manual) setUpdMsg("Не удалось проверить обновления", "err");
+    else console.warn("update check failed:", e);
+  }
+}
+
+function bindUpdateModal() {
+  $("updNow").addEventListener("click", runInstall);
+  $("updLater").addEventListener("click", hideUpdateModal);
+  $("updSkip").addEventListener("click", () => {
+    const v = $("updVersion").textContent;
+    if (v) localStorage.setItem(SKIP_KEY, v);
+    hideUpdateModal();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// settings screen
+// ---------------------------------------------------------------------------
+let currentVersion = "0.0.0";
+
+function setUpdMsg(text: string, kind: "" | "ok" | "err" = "") {
+  const el = $("setUpdMsg");
+  el.textContent = text;
+  el.className = `set__msg mono${kind ? " " + kind : ""}`;
+}
+
+function renderSwatches() {
+  const box = $("swatches");
+  box.innerHTML = "";
+  for (const [name, color] of Object.entries(ACCENTS)) {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    b.style.setProperty("--sw", color);
+    b.title = name;
+    if (settings.accent === name) b.classList.add("selected");
+    b.addEventListener("click", () => saveAppearance(name, settings.theme));
+    box.appendChild(b);
+  }
+}
+
+function renderThemeSeg() {
+  document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.theme === settings.theme);
+  });
+}
+
+async function saveAppearance(accent: string, theme: string) {
+  // optimistic: apply instantly, then persist
+  settings = { ...settings, accent, theme };
+  applyAppearance(settings);
+  renderSwatches();
+  renderThemeSeg();
+  if (!accent.startsWith("#")) {
+    ($("accentCustom") as HTMLInputElement).value = "#e8a33d";
+  }
+  try {
+    settings = await invoke<Settings>("set_appearance", { accent, theme });
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
+
+async function openSettings() {
+  renderSwatches();
+  renderThemeSeg();
+  const custom = $("accentCustom") as HTMLInputElement;
+  if (settings.accent.startsWith("#")) custom.value = settings.accent;
+  setUpdMsg("");
+  $("setVersion").textContent = currentVersion;
+  $("settingsModal").hidden = false;
+}
+
+function closeSettings() {
+  $("settingsModal").hidden = true;
+}
+
+function bindSettings() {
+  $("settingsBtn").addEventListener("click", openSettings);
+  document.querySelectorAll<HTMLElement>("[data-close]").forEach((el) =>
+    el.addEventListener("click", closeSettings)
+  );
+  document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) =>
+    b.addEventListener("click", () => saveAppearance(settings.accent, b.dataset.theme as string))
+  );
+  ($("accentCustom") as HTMLInputElement).addEventListener("input", (e) =>
+    saveAppearance((e.target as HTMLInputElement).value, settings.theme)
+  );
+  $("setCheckUpd").addEventListener("click", () => checkForUpdate(true));
+  // Esc closes settings (and dismisses the update dialog as «later»)
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!$("settingsModal").hidden) closeSettings();
+    else if (!$("updateModal").hidden) hideUpdateModal();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// boot
+// ---------------------------------------------------------------------------
 bind();
+bindUpdateModal();
+bindSettings();
 refresh();
+
+invoke<string>("app_version")
+  .then((v) => {
+    currentVersion = v;
+    $("setVersion").textContent = v;
+  })
+  .catch(() => {});
+
+// react to actions taken from the menu-bar tray (connect/disconnect/check-update)
+listen("status-changed", async () => {
+  if (busy) return;
+  status = await invoke<Status>("status");
+  render();
+});
+listen("tray://check-update", () => checkForUpdate(true));
+listen<string>("tray-error", (e) => toast(e.payload, true));
+
 // keep status fresh in case the core dies unexpectedly
 window.setInterval(async () => {
   if (busy) return;
@@ -410,4 +643,4 @@ window.setInterval(async () => {
 }, 2500);
 
 // check for updates shortly after launch
-window.setTimeout(checkForUpdate, 2500);
+window.setTimeout(() => checkForUpdate(false), 2500);
