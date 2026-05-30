@@ -35,7 +35,7 @@ const RS_GEOSITE_PRIVATE: &str =
 ///
 /// `bypass_ru` toggles the RU→direct split. When false, *everything* goes
 /// through the proxy (private networks still stay direct).
-pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool) -> Value {
+pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool, excluded: &[String]) -> Value {
     let mut proxy = server.outbound.clone();
     proxy["tag"] = json!(PROXY_TAG);
 
@@ -65,7 +65,7 @@ pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool) -> Value {
             proxy,
             { "type": "direct", "tag": "direct" }
         ],
-        "route": build_route(bypass_ru),
+        "route": build_route(bypass_ru, excluded),
         "experimental": {
             "cache_file": { "enabled": true, "store_rdrc": true },
             // Local control API — we only read traffic counters from it.
@@ -99,7 +99,7 @@ fn build_dns(bypass_ru: bool) -> Value {
     })
 }
 
-fn build_route(bypass_ru: bool) -> Value {
+fn build_route(bypass_ru: bool, excluded: &[String]) -> Value {
     let mut rules = vec![
         json!({ "action": "sniff" }),
         json!({ "protocol": "dns", "action": "hijack-dns" }),
@@ -107,6 +107,13 @@ fn build_route(bypass_ru: bool) -> Value {
         json!({ "ip_is_private": true, "outbound": "direct" }),
         json!({ "rule_set": ["geosite-private"], "outbound": "direct" }),
     ];
+
+    // User-selected apps bypass the VPN entirely (matched by process name).
+    // Most reliable in TUN mode; in system-proxy mode it applies to proxied
+    // connections sing-box can attribute to a process.
+    if !excluded.is_empty() {
+        rules.push(json!({ "process_name": excluded, "outbound": "direct" }));
+    }
 
     let mut rule_set = vec![
         remote_rule_set("geosite-private", RS_GEOSITE_PRIVATE),

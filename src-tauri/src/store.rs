@@ -19,6 +19,9 @@ pub struct Settings {
     /// Theme: "dark" | "light" | "system".
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Process names (CFBundleExecutable) whose traffic bypasses the VPN.
+    #[serde(default)]
+    pub excluded_apps: Vec<String>,
 }
 
 fn default_accent() -> String {
@@ -36,6 +39,7 @@ impl Default for Settings {
             active_server: None,
             accent: default_accent(),
             theme: default_theme(),
+            excluded_apps: Vec::new(),
         }
     }
 }

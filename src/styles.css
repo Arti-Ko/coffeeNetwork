@@ -1040,3 +1040,97 @@ body {
 }
 #corePath .spd + .spd { margin-left: 16px; }
 #corePath .spd b { color: var(--accent); font-weight: 700; font-size: 11px; }
+
+/* tools count badge (ИГНОР N) */
+.tool-count { color: var(--accent); font-weight: 700; }
+
+/* exclusions picker */
+.excl-search {
+  width: 100%;
+  margin: 4px 0 12px;
+  padding: 9px 12px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--recess);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  outline: none;
+}
+.excl-search::placeholder { color: var(--ink-faint); }
+.excl-search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.excl-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-top: 1px solid var(--hair);
+  margin-bottom: 18px;
+}
+.excl-list::-webkit-scrollbar { width: 7px; }
+.excl-list::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 99px; }
+.excl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--hair-2);
+  transition: background var(--dur), padding-left var(--dur) var(--ease);
+}
+.excl-row:hover { background: var(--lift-1); padding-left: 12px; }
+.excl-name {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.excl-row.on .excl-name { color: var(--accent); font-weight: 600; }
+.excl-box {
+  position: relative;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--ink-faint);
+  transition: background var(--dur), border-color var(--dur);
+}
+.excl-row.on .excl-box { background: var(--accent); border-color: var(--accent); }
+.excl-row.on .excl-box::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+.excl-empty {
+  padding: 34px 20px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+/* app icon in exclusions list */
+.excl-name { flex: 1; }
+.excl-ico {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: contain;
+}
+.excl-ico--ph {
+  background: var(--lift-2);
+  border: 1px solid var(--hair);
+}

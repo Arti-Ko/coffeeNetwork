@@ -116,6 +116,172 @@ fn app_version() -> String {
 }
 
 // ---------------------------------------------------------------------------
+// per-app split tunneling (exclusions)
+// ---------------------------------------------------------------------------
+
+/// An installed macOS app the user can exclude from the VPN.
+#[derive(Serialize)]
+pub struct AppInfo {
+    /// Display name (CFBundleDisplayName / CFBundleName / bundle filename).
+    name: String,
+    /// Executable name (CFBundleExecutable) — what sing-box matches as process_name.
+    exec: String,
+    /// App icon as a `data:image/png;base64,…` URI (None if unavailable).
+    icon: Option<String>,
+}
+
+struct AppRaw {
+    name: String,
+    exec: String,
+    bundle: std::path::PathBuf,
+    icon_file: Option<String>,
+}
+
+/// List installed macOS apps (for the exclusions picker), with icons. Reads each
+/// bundle's Info.plist; icons are extracted from `.icns` in parallel for speed.
+#[tauri::command]
+fn list_apps() -> Vec<AppInfo> {
+    use std::collections::BTreeMap;
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    let roots = [
+        "/Applications".to_string(),
+        "/Applications/Utilities".to_string(),
+        "/System/Applications".to_string(),
+        "/System/Applications/Utilities".to_string(),
+        format!("{home}/Applications"),
+    ];
+
+    // de-duplicate by exec (process name — what routing keys on).
+    let mut found: BTreeMap<String, AppRaw> = BTreeMap::new();
+
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(&root) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("app") {
+                continue;
+            }
+            let Ok(value) = plist::Value::from_file(path.join("Contents/Info.plist")) else {
+                continue;
+            };
+            let Some(dict) = value.as_dictionary() else { continue };
+            let Some(exec) = dict
+                .get("CFBundleExecutable")
+                .and_then(|v| v.as_string())
+                .map(|s| s.to_string())
+            else {
+                continue;
+            };
+            let name = dict
+                .get("CFBundleDisplayName")
+                .and_then(|v| v.as_string())
+                .or_else(|| dict.get("CFBundleName").and_then(|v| v.as_string()))
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| {
+                    path.file_stem().and_then(|s| s.to_str()).unwrap_or(&exec).to_string()
+                });
+            let icon_file = dict
+                .get("CFBundleIconFile")
+                .and_then(|v| v.as_string())
+                .map(|s| s.to_string());
+
+            found.entry(exec.clone()).or_insert(AppRaw {
+                name,
+                exec,
+                bundle: path,
+                icon_file,
+            });
+        }
+    }
+
+    let raw: Vec<AppRaw> = found.into_values().collect();
+
+    // Extract icons in parallel — reading/decoding ~150 .icns serially is slow.
+    let icons: Vec<Option<String>> = {
+        let threads = 8usize.min(raw.len().max(1));
+        let chunk = raw.len().div_ceil(threads).max(1);
+        std::thread::scope(|s| {
+            let handles: Vec<_> = raw
+                .chunks(chunk)
+                .map(|ch| {
+                    s.spawn(move || {
+                        ch.iter()
+                            .map(|a| icon_data_uri(&a.bundle, a.icon_file.as_deref()))
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        })
+    };
+
+    let mut apps: Vec<AppInfo> = raw
+        .into_iter()
+        .zip(icons)
+        .map(|(a, icon)| AppInfo {
+            name: a.name,
+            exec: a.exec,
+            icon,
+        })
+        .collect();
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps
+}
+
+/// Extract a small app icon from the bundle's `.icns` as a base64 PNG data URI.
+fn icon_data_uri(bundle: &std::path::Path, icon_file: Option<&str>) -> Option<String> {
+    use base64::Engine as _;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    let res = bundle.join("Contents/Resources");
+    // Resolve the .icns path: named in Info.plist (maybe without extension),
+    // else the first .icns in Resources.
+    let icns_path = icon_file
+        .map(|name| {
+            let p = res.join(name);
+            if p.extension().is_some() { p } else { p.with_extension("icns") }
+        })
+        .filter(|p| p.exists())
+        .or_else(|| {
+            std::fs::read_dir(&res).ok()?.flatten().map(|e| e.path()).find(|p| {
+                p.extension().and_then(|e| e.to_str()) == Some("icns")
+            })
+        })?;
+
+    let family = icns::IconFamily::read(BufReader::new(File::open(&icns_path).ok()?)).ok()?;
+    let types = family.available_icons();
+    if types.is_empty() {
+        return None;
+    }
+    // Prefer a small icon (~>=32px) to keep payload light; else the largest.
+    let chosen = types
+        .iter()
+        .copied()
+        .filter(|t| t.pixel_width() >= 32)
+        .min_by_key(|t| t.pixel_width())
+        .or_else(|| types.iter().copied().max_by_key(|t| t.pixel_width()))?;
+
+    let image = family.get_icon_with_type(chosen).ok()?;
+    let mut png: Vec<u8> = Vec::new();
+    image.write_png(&mut png).ok()?;
+    Some(format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&png)
+    ))
+}
+
+/// Save the set of apps (process names) that bypass the VPN.
+#[tauri::command]
+fn set_exclusions(apps: Vec<String>) -> Result<Settings, String> {
+    let mut s = store::load_settings();
+    s.excluded_apps = apps;
+    store::save_settings(&s)?;
+    Ok(s)
+}
+
+// ---------------------------------------------------------------------------
 // connection
 // ---------------------------------------------------------------------------
 
@@ -129,7 +295,13 @@ fn do_connect(app: &AppHandle, id: String) -> Result<Status, String> {
         .ok_or("Сервер не найден")?;
 
     let mut settings = store::load_settings();
-    core::connect(state.inner(), &server, settings.mode, settings.bypass_ru)?;
+    core::connect(
+        state.inner(),
+        &server,
+        settings.mode,
+        settings.bypass_ru,
+        &settings.excluded_apps,
+    )?;
 
     settings.active_server = Some(id);
     store::save_settings(&settings)?;
@@ -259,7 +431,7 @@ fn preview_config(id: String) -> Result<String, String> {
         .find(|s| s.id == id)
         .ok_or("Сервер не найден")?;
     let settings = store::load_settings();
-    let config = singbox::build_config(&server, settings.mode, settings.bypass_ru);
+    let config = singbox::build_config(&server, settings.mode, settings.bypass_ru, &settings.excluded_apps);
     serde_json::to_string_pretty(&config).map_err(|e| e.to_string())
 }
 
@@ -434,6 +606,8 @@ pub fn run() {
             set_settings,
             set_appearance,
             app_version,
+            list_apps,
+            set_exclusions,
             connect,
             disconnect,
             status,

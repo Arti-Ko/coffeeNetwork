@@ -29,6 +29,7 @@ interface Settings {
   active_server: string | null;
   accent: string; // named preset ("amber"…) or hex "#rrggbb"
   theme: string; // "dark" | "light" | "system"
+  excluded_apps: string[]; // process names that bypass the VPN
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ let settings: Settings = {
   active_server: null,
   accent: "amber",
   theme: "dark",
+  excluded_apps: [],
 };
 let status: Status = { running: false, active_server: null, mode: null, bypass_ru: true, core_path: null };
 let selectedId: string | null = null;
@@ -159,6 +161,7 @@ function render() {
   renderMeta();
   renderServers();
   renderCore();
+  updateExclCount();
 }
 
 function renderHero() {
@@ -698,9 +701,91 @@ function bindSettings() {
   // Esc closes settings (and dismisses the update dialog as «later»)
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (!$("settingsModal").hidden) closeSettings();
+    if (!$("exclusionsModal").hidden) $("exclusionsModal").hidden = true;
+    else if (!$("settingsModal").hidden) closeSettings();
     else if (!$("updateModal").hidden) hideUpdateModal();
   });
+}
+
+// ---------------------------------------------------------------------------
+// exclusions — pick installed apps whose traffic bypasses the VPN
+// ---------------------------------------------------------------------------
+interface AppInfo {
+  name: string;
+  exec: string;
+  icon: string | null;
+}
+let allApps: AppInfo[] = [];
+let exclSet = new Set<string>(); // working selection while the modal is open
+
+function updateExclCount() {
+  const n = settings.excluded_apps?.length ?? 0;
+  $("exclCount").textContent = n ? ` ${n}` : "";
+}
+
+function renderExclList(query: string) {
+  const list = $("exclList");
+  const q = query.trim().toLowerCase();
+  const apps = q ? allApps.filter((a) => a.name.toLowerCase().includes(q)) : allApps;
+  list.innerHTML = "";
+  if (!apps.length) {
+    list.innerHTML = `<div class="excl-empty mono">${allApps.length ? "Ничего не найдено" : "Загрузка…"}</div>`;
+    return;
+  }
+  for (const a of apps) {
+    const row = document.createElement("div");
+    row.className = "excl-row" + (exclSet.has(a.exec) ? " on" : "");
+    const ico = a.icon
+      ? `<img class="excl-ico" src="${a.icon}" alt="" />`
+      : `<span class="excl-ico excl-ico--ph"></span>`;
+    row.innerHTML = `${ico}<span class="excl-name">${esc(a.name)}</span><span class="excl-box"></span>`;
+    row.addEventListener("click", () => {
+      if (exclSet.has(a.exec)) exclSet.delete(a.exec);
+      else exclSet.add(a.exec);
+      row.classList.toggle("on");
+    });
+    list.appendChild(row);
+  }
+}
+
+async function openExclusions() {
+  exclSet = new Set(settings.excluded_apps);
+  $("exclusionsModal").hidden = false;
+  ($("exclSearch") as HTMLInputElement).value = "";
+  renderExclList("");
+  if (!allApps.length) {
+    try {
+      allApps = await invoke<AppInfo[]>("list_apps");
+    } catch (e) {
+      toast(String(e), true);
+    }
+    renderExclList("");
+  }
+}
+
+async function saveExclusions() {
+  const apps = [...exclSet];
+  try {
+    settings = await invoke<Settings>("set_exclusions", { apps });
+  } catch (e) {
+    toast(String(e), true);
+    return;
+  }
+  $("exclusionsModal").hidden = true;
+  updateExclCount();
+  toast(apps.length ? `В обход VPN: ${apps.length} прил.` : "Список игнора очищен");
+  if (status.running) await reconnect();
+}
+
+function bindExclusions() {
+  $("exclToggle").addEventListener("click", openExclusions);
+  $("exclSave").addEventListener("click", saveExclusions);
+  ($("exclSearch") as HTMLInputElement).addEventListener("input", (e) =>
+    renderExclList((e.target as HTMLInputElement).value)
+  );
+  document.querySelectorAll<HTMLElement>("[data-close-excl]").forEach((el) =>
+    el.addEventListener("click", () => ($("exclusionsModal").hidden = true))
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -709,6 +794,7 @@ function bindSettings() {
 bind();
 bindUpdateModal();
 bindSettings();
+bindExclusions();
 refresh();
 
 invoke<string>("app_version")

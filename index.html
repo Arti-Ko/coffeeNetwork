@@ -125,6 +125,7 @@
         </p>
 
         <div class="tools mono">
+          <button id="exclToggle" class="btn-ghost">ИГНОР<span id="exclCount" class="tool-count"></span></button>
           <button id="logToggle" class="btn-ghost">LOG</button>
           <button id="configToggle" class="btn-ghost">CONFIG</button>
         </div>
@@ -153,6 +154,29 @@
           <button id="updSkip" class="btn-ghost mono">Пропустить версию</button>
         </div>
         <div class="modal__progress mono" id="updProgress" hidden>ЗАГРУЗКА…</div>
+      </div>
+    </div>
+
+    <!-- ===================== EXCLUSIONS (apps bypass VPN) ===================== -->
+    <div id="exclusionsModal" class="modal" hidden>
+      <div class="modal__backdrop" data-close-excl></div>
+      <div class="modal__card glass" role="dialog" aria-modal="true">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--br"></span>
+        <button class="modal__x" data-close-excl aria-label="Закрыть">✕</button>
+        <div class="modal__badge mono">ИГНОРИРОВАНИЕ VPN</div>
+        <h3 class="modal__title">Приложения мимо VPN</h3>
+        <div class="modal__sub mono">отмеченные приложения идут напрямую, в обход VPN</div>
+        <input
+          id="exclSearch"
+          class="excl-search mono"
+          placeholder="Поиск приложения…"
+          spellcheck="false"
+        />
+        <div id="exclList" class="excl-list"></div>
+        <div class="modal__actions">
+          <button id="exclSave" class="btn-solid mono">Сохранить</button>
+        </div>
       </div>
     </div>
 

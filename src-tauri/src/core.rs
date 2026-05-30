@@ -78,13 +78,14 @@ pub fn connect(
     server: &Server,
     mode: Mode,
     bypass_ru: bool,
+    excluded: &[String],
 ) -> Result<(), String> {
     stop(state)?; // ensure clean slate
 
     let bin = singbox::locate_binary()
         .ok_or("Ядро sing-box не найдено. Установите его: brew install sing-box")?;
 
-    let config = singbox::build_config(server, mode, bypass_ru);
+    let config = singbox::build_config(server, mode, bypass_ru, excluded);
     let cfg_path = config_path()?;
     fs::write(
         &cfg_path,
