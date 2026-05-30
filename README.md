@@ -4,8 +4,6 @@
 
 # coffeeNetwork
 
-<img src=".github/assets/banner.png" width="100%" alt="coffeeNetwork — VPN с умным обходом РФ" />
-
 **Мощный кросс-платформенный VPN-клиент с умным сплит-туннелингом.**
 Hysteria2 · VLESS (+ Reality) · VMess · Shadowsocks · Trojan · TUIC — на движке [sing-box](https://sing-box.sagernet.org/).
 
