@@ -112,10 +112,16 @@ fn spawn_plain(
     let out = fs::File::create(log_file).map_err(|e| e.to_string())?;
     let err = out.try_clone().map_err(|e| e.to_string())?;
 
+    // Run from the writable config dir so sing-box can create its `cache.db`
+    // (experimental.cache_file). Launched from Finder the CWD is `/`, which is
+    // read-only → "open cache.db: read-only file system" and the core dies.
+    let workdir = config_dir()?;
+
     let child = Command::new(bin)
         .arg("run")
         .arg("-c")
         .arg(cfg)
+        .current_dir(&workdir)
         .stdout(Stdio::from(out))
         .stderr(Stdio::from(err))
         .stdin(Stdio::null())
@@ -150,8 +156,12 @@ fn spawn_elevated(
     server: &Server,
     mode: Mode,
 ) -> Result<(), String> {
+    // cd into the writable config dir so sing-box can create cache.db there
+    // (otherwise CWD is `/` and cache-file init fails on the read-only fs).
+    let workdir = config_dir()?;
     let script = format!(
-        "do shell script \"'{bin}' run -c '{cfg}' > '{log}' 2>&1 & echo $!\" with administrator privileges",
+        "do shell script \"cd '{dir}' && '{bin}' run -c '{cfg}' > '{log}' 2>&1 & echo $!\" with administrator privileges",
+        dir = workdir.display(),
         bin = bin.display(),
         cfg = cfg.display(),
         log = log_file.display(),
