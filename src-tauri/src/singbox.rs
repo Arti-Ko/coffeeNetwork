@@ -84,7 +84,10 @@ fn build_dns(bypass_ru: bool) -> Value {
     json!({
         "servers": [
             { "type": "https", "tag": "remote", "server": "1.1.1.1", "detour": PROXY_TAG },
-            { "type": "https", "tag": "local-ru", "server": "77.88.8.8", "detour": "direct" }
+            // No `detour: direct` here — sing-box 1.12 rejects detour to a bare
+            // direct outbound ("makes no sense"). Routing sends this RU resolver
+            // (77.88.8.8) direct via the geoip-ru route rule when RU-bypass is on.
+            { "type": "https", "tag": "local-ru", "server": "77.88.8.8" }
         ],
         "rules": rules,
         "final": "remote",
