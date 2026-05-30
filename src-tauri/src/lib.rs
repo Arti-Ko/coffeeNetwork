@@ -171,6 +171,46 @@ fn get_log() -> String {
     core::read_log().unwrap_or_default()
 }
 
+/// Cumulative byte counters from the sing-box Clash API. The UI polls this and
+/// derives the per-second up/down speed from the deltas.
+#[derive(Serialize, Default)]
+pub struct Traffic {
+    up: u64,
+    down: u64,
+}
+
+#[tauri::command]
+fn traffic() -> Traffic {
+    read_traffic_totals()
+        .map(|(up, down)| Traffic { up, down })
+        .unwrap_or_default()
+}
+
+/// Minimal HTTP/1.0 GET to the local Clash API `/connections` endpoint, which
+/// returns `uploadTotal`/`downloadTotal`. HTTP/1.0 → the server closes the
+/// connection after the body, so we can read to EOF without chunk parsing.
+fn read_traffic_totals() -> Option<(u64, u64)> {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    let addr = "127.0.0.1:19099".parse().ok()?;
+    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(800)).ok()?;
+    stream.set_read_timeout(Some(Duration::from_millis(1200))).ok()?;
+    stream
+        .write_all(b"GET /connections HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+        .ok()?;
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).ok()?;
+    let text = String::from_utf8_lossy(&raw);
+    let body = text.split("\r\n\r\n").nth(1)?;
+    let v: serde_json::Value = serde_json::from_str(body.trim()).ok()?;
+    Some((
+        v.get("uploadTotal").and_then(|x| x.as_u64()).unwrap_or(0),
+        v.get("downloadTotal").and_then(|x| x.as_u64()).unwrap_or(0),
+    ))
+}
+
 /// Result of an update check, surfaced to the UI.
 #[derive(Serialize, Default)]
 pub struct UpdateInfo {
@@ -398,6 +438,7 @@ pub fn run() {
             disconnect,
             status,
             get_log,
+            traffic,
             preview_config,
             check_update,
             install_update,

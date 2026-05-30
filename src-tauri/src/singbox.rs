@@ -67,7 +67,10 @@ pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool) -> Value {
         ],
         "route": build_route(bypass_ru),
         "experimental": {
-            "cache_file": { "enabled": true, "store_rdrc": true }
+            "cache_file": { "enabled": true, "store_rdrc": true },
+            // Local control API — we only read traffic counters from it.
+            // Uncommon port to avoid clashing with other clients (Clash uses 9090).
+            "clash_api": { "external_controller": "127.0.0.1:19099" }
         }
     })
 }

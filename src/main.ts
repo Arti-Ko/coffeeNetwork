@@ -242,7 +242,7 @@ function renderServers() {
     li.addEventListener("click", (e) => {
       const t = e.target as HTMLElement;
       if (t.classList.contains("rename")) {
-        renameServer(s);
+        startRename(li, s);
         return;
       }
       if (t.classList.contains("del")) {
@@ -257,10 +257,71 @@ function renderServers() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// live traffic speed (footer) — polls the sing-box Clash API counters
+// ---------------------------------------------------------------------------
+let trafTimer: number | null = null;
+let trafPrev: { up: number; down: number; t: number } | null = null;
+
+function fmtSpeed(bps: number): string {
+  if (bps < 1024) return `${Math.round(bps)} B/s`;
+  if (bps < 1024 * 1024) return `${Math.round(bps / 1024)} KB/s`;
+  return `${(bps / 1024 / 1024).toFixed(1)} MB/s`;
+}
+
+function renderSpeed(down: number, up: number) {
+  $("corePath").innerHTML =
+    `<span class="spd"><b>↓</b> ${fmtSpeed(down)}</span>` +
+    `<span class="spd"><b>↑</b> ${fmtSpeed(up)}</span>`;
+}
+
+async function pollTraffic() {
+  if (!status.running) return;
+  try {
+    const t = await invoke<{ up: number; down: number }>("traffic");
+    const now = Date.now();
+    if (trafPrev) {
+      const dt = Math.max(0.25, (now - trafPrev.t) / 1000);
+      renderSpeed(
+        Math.max(0, (t.down - trafPrev.down) / dt),
+        Math.max(0, (t.up - trafPrev.up) / dt)
+      );
+    }
+    trafPrev = { up: t.up, down: t.down, t: now };
+  } catch {
+    /* core not up yet / api unavailable — ignore */
+  }
+}
+
+function startTraffic() {
+  if (trafTimer) return;
+  trafPrev = null;
+  renderSpeed(0, 0);
+  pollTraffic();
+  trafTimer = window.setInterval(pollTraffic, 1000);
+}
+
+function stopTraffic() {
+  if (trafTimer) {
+    window.clearInterval(trafTimer);
+    trafTimer = null;
+  }
+  trafPrev = null;
+}
+
 function renderCore() {
-  $("corePath").textContent = status.core_path
-    ? `CORE · ${status.core_path}`
-    : "⚠ ЯДРО SING-BOX НЕ НАЙДЕНО · brew install sing-box";
+  const el = $("corePath");
+  if (!status.core_path) {
+    stopTraffic();
+    el.textContent = "⚠ ЯДРО SING-BOX НЕ НАЙДЕНО";
+    return;
+  }
+  if (status.running) {
+    startTraffic(); // poller drives the footer with live ↓/↑ speed
+  } else {
+    stopTraffic();
+    el.textContent = settings.bypass_ru ? "STANDBY · RU-BYPASS" : "STANDBY · FULL TUNNEL";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -373,11 +434,45 @@ async function importLinks() {
   }
 }
 
-async function renameServer(s: Server) {
-  const name = window.prompt("Новое имя сервера:", s.name);
-  if (!name || name === s.name) return;
-  servers = await invoke<Server[]>("rename_server", { id: s.id, name });
-  render();
+/** Inline rename: swap the server name for an input, commit on Enter/blur. */
+function startRename(li: HTMLElement, s: Server) {
+  const nameEl = li.querySelector(".srv__name") as HTMLElement | null;
+  if (!nameEl) return;
+  const input = document.createElement("input");
+  input.className = "srv__rename";
+  input.value = s.name;
+  input.spellcheck = false;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  const finish = async (save: boolean) => {
+    if (done) return;
+    done = true;
+    const v = input.value.trim();
+    if (save && v && v !== s.name) {
+      try {
+        servers = await invoke<Server[]>("rename_server", { id: s.id, name: v });
+      } catch (e) {
+        toast(String(e), true);
+      }
+    }
+    render();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => finish(true));
+  // don't let clicks inside the field bubble to the row (select/destroy)
+  input.addEventListener("click", (e) => e.stopPropagation());
+  input.addEventListener("mousedown", (e) => e.stopPropagation());
 }
 
 async function deleteServer(s: Server) {

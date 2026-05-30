@@ -1012,3 +1012,31 @@ body {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--sw);
 }
+
+/* inline server rename */
+.srv__rename {
+  width: 100%;
+  font-family: var(--grotesk);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  background: var(--recess);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 3px 7px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* footer live traffic speed */
+#corePath .spd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+#corePath .spd + .spd { margin-left: 16px; }
+#corePath .spd b { color: var(--accent); font-weight: 700; font-size: 11px; }
