@@ -23,10 +23,12 @@ jobs:
         include:
           # Local dev builds only the signed .app (reliable). Release builds add
           # dmg/nsis + updater artifacts here — clean CI runners bundle DMG fine.
+          # `createUpdaterArtifacts:true` (off by default for local builds) makes
+          # tauri sign the updater bundle (.sig) so tauri-action emits latest.json.
           - platform: macos-latest
-            args: "--target aarch64-apple-darwin --bundles app,dmg,updater"
+            args: '--target aarch64-apple-darwin --bundles app,dmg --config {"bundle":{"createUpdaterArtifacts":true}}'
           - platform: windows-latest
-            args: "--bundles nsis,updater"
+            args: '--bundles nsis --config {"bundle":{"createUpdaterArtifacts":true}}'
 
     runs-on: ${{ matrix.platform }}
 
