@@ -137,8 +137,28 @@ fn remote_rule_set(tag: &str, url: &str) -> Value {
     })
 }
 
-/// Resolve the sing-box binary, checking PATH-like locations.
+/// Resolve the sing-box binary.
+///
+/// Priority:
+/// 1. The bundled sidecar shipped inside the app (next to the executable) —
+///    so users never have to install sing-box themselves.
+/// 2. A system install (Homebrew / PATH) — handy in `tauri dev` and for power
+///    users who prefer their own sing-box.
 pub fn locate_binary() -> Option<PathBuf> {
+    let bin_name = if cfg!(windows) { "sing-box.exe" } else { "sing-box" };
+
+    // 1. Bundled sidecar — Tauri places externalBin next to the main binary
+    //    (macOS: Contents/MacOS/, Windows: alongside the .exe).
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let p = dir.join(bin_name);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+
+    // 2. System install.
     let candidates = [
         "/opt/homebrew/bin/sing-box",
         "/usr/local/bin/sing-box",
@@ -152,8 +172,9 @@ pub fn locate_binary() -> Option<PathBuf> {
     }
     // Fall back to a PATH lookup.
     if let Ok(path) = std::env::var("PATH") {
-        for dir in path.split(':') {
-            let p = PathBuf::from(dir).join("sing-box");
+        let sep = if cfg!(windows) { ';' } else { ':' };
+        for dir in path.split(sep) {
+            let p = PathBuf::from(dir).join(bin_name);
             if p.exists() {
                 return Some(p);
             }

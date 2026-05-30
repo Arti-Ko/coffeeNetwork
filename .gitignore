@@ -11,3 +11,6 @@ _*.txt
 
 # tsc artifact (vite bundles main.ts directly)
 src/main.js
+
+# bundled sing-box sidecar (fetched at build time by scripts/fetch-sing-box.sh)
+src-tauri/binaries/
