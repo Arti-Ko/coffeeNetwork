@@ -197,7 +197,7 @@ body {
 .ticket {
   display: flex;
   flex-direction: column;
-  padding: 26px 26px 18px;
+  padding: 20px 24px 14px;
 }
 
 .ticket__head {
@@ -229,7 +229,7 @@ body {
   grid-template-columns: 1fr 1fr;
   border-top: 1px solid var(--hair);
   border-bottom: 1px solid var(--hair);
-  margin-top: 18px;
+  margin-top: 12px;
 }
 .headgrid__cell {
   padding: 9px 0;
@@ -254,19 +254,19 @@ body {
 
 /* hero — airport-code display */
 .hero {
-  padding: 22px 0 4px;
+  padding: 12px 0 2px;
 }
 .hero__code {
   font-family: var(--grotesk);
   font-weight: 800;
-  font-size: clamp(66px, 12vw, 108px);
+  font-size: clamp(44px, 8vw, 72px);
   line-height: 0.8;
   letter-spacing: -0.045em;
   color: var(--ink);
   transition: color var(--dur) var(--ease), text-shadow var(--dur);
 }
 .hero__name {
-  margin-top: 14px;
+  margin-top: 9px;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -278,7 +278,7 @@ body {
 .hero__rule {
   height: 1px;
   background: var(--hair);
-  margin: 13px 0 9px;
+  margin: 8px 0 6px;
 }
 .hero__sub {
   font-size: 9.5px;
@@ -289,15 +289,15 @@ body {
 .dashed {
   height: 0;
   border-top: 1px dashed var(--hair);
-  margin: 15px 0;
+  margin: 9px 0;
 }
 
 /* meta — boarding-pass field grid */
 .meta {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 7px;
+  margin-bottom: 11px;
 }
 .meta__row {
   display: grid;
@@ -390,8 +390,8 @@ body {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  margin-top: 13px;
+  gap: 9px;
+  margin-top: 9px;
 }
 .seg {
   display: grid;
@@ -482,8 +482,8 @@ body {
 }
 
 .ticket__foot {
-  margin-top: 15px;
-  padding-top: 13px;
+  margin-top: 9px;
+  padding-top: 9px;
   border-top: 1px solid var(--hair);
   font-size: 8.5px;
   letter-spacing: 0.1em;
