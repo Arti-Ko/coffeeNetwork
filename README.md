@@ -1,0 +1,135 @@
+<div align="center">
+
+<img src=".github/assets/icon.png" width="120" alt="coffeeNetwork" />
+
+# coffeeNetwork
+
+<img src=".github/assets/banner.png" width="100%" alt="coffeeNetwork — VPN с умным обходом РФ" />
+
+**Мощный кросс-платформенный VPN-клиент с умным сплит-туннелингом.**
+Hysteria2 · VLESS (+ Reality) · VMess · Shadowsocks · Trojan · TUIC — на движке [sing-box](https://sing-box.sagernet.org/).
+
+macOS · Windows · Linux · тёмный «liquid glass» интерфейс
+
+<sub>Российские домены и IP идут напрямую — весь остальной трафик через VPN. Одним тумблером.</sub>
+
+</div>
+
+---
+
+## Скриншоты
+
+<div align="center">
+<img src=".github/assets/screenshot-connected.png" width="49%" alt="Подключено" />
+<img src=".github/assets/screenshot-idle.png" width="49%" alt="Список серверов" />
+</div>
+
+---
+
+## Возможности
+
+- **Импорт ссылок** — вставь `vless://…`, `hysteria2://…`, `vmess://…`, `ss://…`, `trojan://…`, `tuic://…` или ссылку подписки (subscription / base64). Парсятся пачкой.
+- **Умный обход РФ** — домены `geosite-category-ru` и IP `geoip-ru` идут напрямую (без VPN). Списки тянутся и кешируются автоматически (rule-sets SagerNet, обновление раз в 72 ч).
+- **Два режима перехвата:**
+  - **Системный прокси** (по умолчанию) — mixed SOCKS+HTTP на `127.0.0.1:2080`, **без root**.
+  - **TUN** — перехват всего трафика. Требует прав администратора (один запрос пароля).
+- **DNS без утечек** — основной резолвер (DoH) ходит через прокси; РФ-домены резолвятся напрямую.
+- **Автообновление** — приложение само проверяет GitHub Releases и предлагает обновиться (подписанные сборки).
+- **Тёмный «liquid glass» интерфейс** — метафора посадочного талона, крупная типографика, тёплый янтарный акцент.
+- Просмотр итогового sing-box конфига и живые логи ядра.
+
+---
+
+## Установка
+
+Готовые сборки — на вкладке **[Releases](../../releases)** (`.dmg` для macOS, `.exe`/`.msi` для Windows).
+
+### Требования
+
+- macOS 11+ / Windows 10+ / Linux
+- Ядро **sing-box**:
+  - macOS: `brew install sing-box`
+  - Windows: [релиз с GitHub](https://github.com/SagerNet/sing-box/releases) в `PATH`
+  - Linux: пакет дистрибутива или релиз с GitHub
+
+  Клиент сам находит бинарь в стандартных путях (`/opt/homebrew/bin`, `/usr/local/bin`, `$PATH`).
+
+> **Платформы.** Десктоп (macOS/Windows/Linux) — один код на Tauri. Android — отдельное нативное приложение (планируется), т.к. на Android sing-box работает только через `VpnService` + libbox.
+
+---
+
+## Сборка из исходников
+
+```bash
+npm install
+npm run tauri dev      # режим разработки
+npm run tauri build    # .app + .dmg (macOS) / .exe + .msi (Windows)
+```
+
+---
+
+## Как пользоваться
+
+1. Открой приложение.
+2. **+ ADD** → вставь ссылку(-и) сервера → **IMPORT**.
+3. Кликни по серверу в списке, чтобы выбрать.
+4. Нажми **CONNECT**.
+5. Тумблер **RU-BYPASS** включает/выключает сплит-туннелинг. Переключатель **SYS PROXY / TUN** меняет способ перехвата (при активном подключении переподключается автоматически).
+
+Пример ссылки Hysteria2:
+```
+hysteria2://user:pass@host:28443/?insecure=1&sni=vpn.example.online&obfs=salamander&obfs-password=SECRET#HY2
+```
+
+---
+
+## Логика роутинга
+
+| Назначение | Куда |
+|---|---|
+| Приватные сети (LAN, `10.x`, `192.168.x`…) | напрямую |
+| `geosite-private` | напрямую |
+| Российские домены `geosite-category-ru` | напрямую *(если RU-BYPASS вкл.)* |
+| Российские IP `geoip-ru` | напрямую *(если RU-BYPASS вкл.)* |
+| Всё остальное | через прокси |
+
+---
+
+## Архитектура
+
+```
+src/                      # фронтенд (vanilla TS + Vite)
+  main.ts                 # UI-логика, вызовы команд Tauri, автообновление
+  styles.css              # тёмный liquid-glass дизайн (CSS-переменные)
+  index.html
+src-tauri/src/
+  parser.rs               # парсеры share-ссылок → sing-box outbound JSON
+  singbox.rs              # генератор конфига (DNS + route + rule-sets) + поиск бинаря
+  core.rs                 # жизненный цикл процесса sing-box
+  sysproxy.rs             # аварийный сброс системного прокси
+  store.rs                # хранение серверов и настроек (JSON в Application Support)
+  lib.rs                  # команды Tauri + автообновление
+icon-src/                 # слои для themed-иконки (Icon Composer)
+scripts/                  # генераторы иконки/баннера/скриншотов + встраивание .icon
+```
+
+Данные: `~/Library/Application Support/coffeeNetwork/` (macOS) — `servers.json`, `settings.json`, `config.json`, `core.log`.
+
+---
+
+## Релизы и автообновление
+
+Тег `vX.Y.Z` → GitHub Actions собирает подписанные установщики на macOS + Windows, публикует Release и `latest.json`. Приложение проверяет его при запуске и предлагает обновиться.
+
+```bash
+# выпустить новую версию
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+---
+
+## Безопасность
+
+- Никаких хардкод-секретов — данные серверов хранятся локально.
+- TUN запускается через системный запрос прав администратора, пароль не хранится.
+- Обновления проверяются по цифровой подписи (minisign); приватный ключ — только в GitHub Secrets.

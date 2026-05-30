@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>coffeeNetwork</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true">
+      <div class="bg__grid"></div>
+      <div class="bg__grain"></div>
+    </div>
+
+    <div class="titlebar" data-tauri-drag-region></div>
+
+    <main class="app">
+      <!-- ===================== LEFT: boarding-pass cockpit ===================== -->
+      <section class="ticket glass">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--tr"></span>
+        <span class="cross cross--bl"></span>
+        <span class="cross cross--br"></span>
+
+        <header class="ticket__head">
+          <div class="brand mono">
+            COFFEE<span class="brand__net">NETWORK</span>
+          </div>
+          <svg class="plane" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L11 19v-5.5z"/>
+          </svg>
+        </header>
+
+        <div class="headgrid mono">
+          <div class="headgrid__cell">
+            <span class="lbl">STATUS</span>
+            <span class="val" id="headStatus">OFFLINE</span>
+          </div>
+          <div class="headgrid__cell">
+            <span class="lbl">MODE</span>
+            <span class="val" id="headMode">SYS&nbsp;PROXY</span>
+          </div>
+        </div>
+
+        <div class="hero">
+          <div class="hero__code" id="stateCode">OFF</div>
+          <div class="hero__name" id="activeName">сервер не выбран</div>
+          <div class="hero__rule"></div>
+          <div class="hero__sub mono" id="statusText">DISCONNECTED · STANDBY</div>
+        </div>
+
+        <div class="dashed"></div>
+
+        <dl class="meta mono">
+          <div class="meta__row">
+            <dt>NODE</dt>
+            <dd id="activeAddr">—</dd>
+          </div>
+          <div class="meta__row">
+            <dt>PROTOCOL</dt>
+            <dd id="activeProto">—</dd>
+          </div>
+          <div class="meta__row">
+            <dt>ROUTING</dt>
+            <dd id="routingState">RU-BYPASS</dd>
+          </div>
+        </dl>
+
+        <button id="powerBtn" class="connect" aria-live="polite">
+          <span class="connect__dot" id="statusDot"></span>
+          <span class="connect__label">CONNECT</span>
+          <span class="connect__arrow">→</span>
+        </button>
+
+        <div class="controls">
+          <div class="seg mono" role="group" aria-label="Режим перехвата трафика">
+            <button class="seg-btn" data-mode="system_proxy">SYS PROXY</button>
+            <button class="seg-btn" data-mode="tun">TUN · ALL</button>
+          </div>
+
+          <label class="switch-row mono">
+            <span class="switch-row__txt">
+              <strong>RU-BYPASS</strong>
+              <small>РФ-домены и IP — мимо VPN</small>
+            </span>
+            <span class="switch"><input type="checkbox" id="bypassRu" /><i></i></span>
+          </label>
+        </div>
+
+        <footer class="ticket__foot mono" id="corePath">ядро не найдено</footer>
+      </section>
+
+      <!-- ===================== RIGHT: servers + tools ===================== -->
+      <section class="panel glass">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--br"></span>
+
+        <div class="panel__head">
+          <h2 class="mono">SERVERS<span class="count" id="srvCount">00</span></h2>
+          <button id="importToggle" class="btn-ghost mono">+ ADD</button>
+        </div>
+
+        <div class="import" id="importBox" hidden>
+          <textarea
+            id="importInput"
+            rows="3"
+            spellcheck="false"
+            placeholder="vless:// · hysteria2:// · vmess:// · ss:// · trojan:// · tuic://  или ссылка подписки"
+          ></textarea>
+          <div class="import__actions">
+            <button id="importBtn" class="btn-solid mono">IMPORT</button>
+            <span id="importMsg" class="import__msg mono"></span>
+          </div>
+        </div>
+
+        <ul id="serverList" class="srv-list"></ul>
+        <p id="emptyState" class="empty mono">
+          NO NODES YET<br /><span>нажми + ADD и вставь ссылку сервера</span>
+        </p>
+
+        <div class="tools mono">
+          <button id="logToggle" class="btn-ghost">LOG</button>
+          <button id="configToggle" class="btn-ghost">CONFIG</button>
+        </div>
+        <pre id="logView" class="dump mono" hidden></pre>
+        <pre id="configView" class="dump mono" hidden></pre>
+      </section>
+    </main>
+
+    <div id="toast" class="toast mono" hidden></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
