@@ -58,13 +58,14 @@ if [[ "$WITH_DMG" == "true" ]]; then
     export TAURI_SIGNING_PRIVATE_KEY="$KEY_FILE"
     export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
     echo "▸ Updater-ключ найден — подпишу updater-артефакты"
+    BUILD_CMD+=(--bundles app,dmg,updater)
   else
-    echo "▸ Updater-ключ не найден — собираю без updater-артефактов"
-    BUILD_CMD+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+    echo "▸ Updater-ключ не найден — собираю .app + .dmg без updater-артефактов"
+    BUILD_CMD+=(--bundles app,dmg)
   fi
 else
-  # Быстрая надёжная сборка: только .app, без флаки dmg и без updater-артефактов.
-  BUILD_CMD+=(--bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}')
+  # Быстрая надёжная сборка: только подписанный .app (без флаки dmg).
+  BUILD_CMD+=(--bundles app)
 fi
 
 echo "▸ Собираю приложение (${BUILD_CMD[*]})…"

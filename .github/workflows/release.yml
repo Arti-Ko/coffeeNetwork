@@ -21,10 +21,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Local dev builds only the signed .app (reliable). Release builds add
+          # dmg/nsis + updater artifacts here — clean CI runners bundle DMG fine.
           - platform: macos-latest
-            args: "--target aarch64-apple-darwin"
+            args: "--target aarch64-apple-darwin --bundles app,dmg,updater"
           - platform: windows-latest
-            args: ""
+            args: "--bundles nsis,updater"
 
     runs-on: ${{ matrix.platform }}
 

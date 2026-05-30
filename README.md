@@ -65,12 +65,19 @@ npm install
 npm run tauri dev      # режим разработки
 
 # macOS — собрать так, чтобы Apple Silicon не ругался и запуск был двойным кликом:
-npm run build:mac      # = scripts/build-mac.sh: build + ad-hoc подпись + снятие карантина
+npm run build:mac      # = scripts/build-mac.sh: build .app + ad-hoc подпись + снятие карантина
 npm run build:mac -- --open   # то же + сразу открыть приложение
+npm run build:mac -- --dmg    # дополнительно собрать .dmg + updater-артефакты
 
-# Остальные платформы / общий вариант:
-npm run tauri build    # .app + .dmg (macOS) / .exe + .msi (Windows)
+# Общий вариант (то же, что build:mac, но без снятия карантина):
+npm run tauri build    # macOS → подписанный .app · Windows → .exe (nsis)
 ```
+
+> **Почему локально только `.app`, а не `.dmg`?** Сборка `.dmg` (`bundle_dmg.sh`)
+> использует AppleScript/Finder и нестабильна при повторных прогонах. Для запуска
+> на своей машине `.dmg` не нужен — нужен подписанный `.app`. Установщики `.dmg`
+> (macOS) и `.exe` (Windows) + артефакты автообновления собирает CI на чистых
+> раннерах при пуше тега `vX.Y.Z` (`.github/workflows/release.yml`).
 
 ### macOS: «приложение повреждено» / "killed: 9" на Apple Silicon
 

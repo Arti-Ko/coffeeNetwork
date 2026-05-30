@@ -33,7 +33,6 @@
     "active": true,
     "targets": [
       "app",
-      "dmg",
       "nsis"
     ],
     "icon": [
@@ -52,7 +51,7 @@
         "installMode": "perMachine"
       }
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": false
   },
   "plugins": {
     "updater": {
