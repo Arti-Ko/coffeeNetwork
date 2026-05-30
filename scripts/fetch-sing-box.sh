@@ -58,8 +58,21 @@ echo "▸ Скачиваю sing-box ${SB_VERSION} (${OSARCH})…"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 curl -fsSL "$URL" -o "$TMP/sb.$ARCHIVE"
-# bsdtar (macOS/Windows-runner) понимает и .tar.gz, и .zip через -xf.
-tar -xf "$TMP/sb.$ARCHIVE" -C "$TMP"
+# Распаковка: .tar.gz через tar; .zip — git-bash GNU tar НЕ умеет zip, поэтому
+# на Windows распаковываем через PowerShell Expand-Archive (с конвертацией путей).
+if [[ "$ARCHIVE" == "zip" ]]; then
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$TMP/sb.$ARCHIVE" -d "$TMP"
+  elif command -v powershell >/dev/null 2>&1; then
+    win_src="$(cygpath -w "$TMP/sb.$ARCHIVE" 2>/dev/null || echo "$TMP/sb.$ARCHIVE")"
+    win_dst="$(cygpath -w "$TMP" 2>/dev/null || echo "$TMP")"
+    powershell -NoProfile -Command "Expand-Archive -Force -LiteralPath '$win_src' -DestinationPath '$win_dst'"
+  else
+    tar -xf "$TMP/sb.$ARCHIVE" -C "$TMP"
+  fi
+else
+  tar -xzf "$TMP/sb.$ARCHIVE" -C "$TMP"
+fi
 SRC="$(find "$TMP" -type f -name "$INNER" | head -1)"
 if [[ -z "$SRC" ]]; then
   echo "✗ не нашёл $INNER внутри архива"; exit 1

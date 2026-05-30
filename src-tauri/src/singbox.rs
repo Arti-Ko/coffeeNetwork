@@ -65,7 +65,7 @@ pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool) -> Value {
             proxy,
             { "type": "direct", "tag": "direct" }
         ],
-        "route": build_route(mode, bypass_ru),
+        "route": build_route(bypass_ru),
         "experimental": {
             "cache_file": { "enabled": true, "store_rdrc": true }
         }
@@ -80,10 +80,11 @@ fn build_dns(bypass_ru: bool) -> Value {
         rules.push(json!({ "rule_set": ["geosite-category-ru"], "server": "local-ru" }));
     }
 
+    // sing-box 1.12+ DNS server format (typed `server`, not legacy `address`).
     json!({
         "servers": [
-            { "tag": "remote", "address": "https://1.1.1.1/dns-query", "detour": PROXY_TAG },
-            { "tag": "local-ru", "address": "https://77.88.8.8/dns-query", "detour": "direct" }
+            { "type": "https", "tag": "remote", "server": "1.1.1.1", "detour": PROXY_TAG },
+            { "type": "https", "tag": "local-ru", "server": "77.88.8.8", "detour": "direct" }
         ],
         "rules": rules,
         "final": "remote",
@@ -92,7 +93,7 @@ fn build_dns(bypass_ru: bool) -> Value {
     })
 }
 
-fn build_route(mode: Mode, bypass_ru: bool) -> Value {
+fn build_route(bypass_ru: bool) -> Value {
     let mut rules = vec![
         json!({ "action": "sniff" }),
         json!({ "protocol": "dns", "action": "hijack-dns" }),
@@ -114,15 +115,15 @@ fn build_route(mode: Mode, bypass_ru: bool) -> Value {
         rule_set.push(remote_rule_set("geoip-ru", RS_GEOIP_RU));
     }
 
-    // TUN benefits from resolving sniffed domains to IPs before geoip matching.
-    let resolve = matches!(mode, Mode::Tun);
-
     json!({
         "rules": rules,
         "rule_set": rule_set,
         "final": PROXY_TAG,
         "auto_detect_interface": true,
-        "default_domain_resolver": if resolve { json!("local-ru") } else { Value::Null }
+        // sing-box 1.12+ requires a domain resolver for dialed outbounds. Use the
+        // direct Russian resolver so the proxy server's own hostname resolves
+        // without needing the (not-yet-up) tunnel.
+        "default_domain_resolver": { "server": "local-ru" }
     })
 }
 
