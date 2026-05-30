@@ -1,14 +1,11 @@
 name: build
 
-# Builds native installers on real OS runners.
-# macOS → .dmg/.app, Windows → .exe (NSIS) + .msi.
-# Triggers on every push to main and on version tags (vX.Y.Z),
-# and can be run manually from the Actions tab.
+# CI smoke-build on every push to main (verifies macOS + Windows compile).
+# Release installers are produced by release.yml on version tags.
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 jobs:
