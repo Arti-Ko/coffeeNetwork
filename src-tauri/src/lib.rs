@@ -130,6 +130,7 @@ pub struct AppInfo {
     icon: Option<String>,
 }
 
+#[cfg(target_os = "macos")]
 struct AppRaw {
     name: String,
     exec: String,
@@ -137,10 +138,18 @@ struct AppRaw {
     icon_file: Option<String>,
 }
 
-/// List installed macOS apps (for the exclusions picker), with icons. Reads each
-/// bundle's Info.plist; icons are extracted from `.icns` in parallel for speed.
+/// List installed apps the user can exclude from the VPN. Platform-specific:
+/// macOS reads `/Applications` bundles (with icons); Windows scans the standard
+/// install roots for executables. Other platforms return an empty list.
 #[tauri::command]
 fn list_apps() -> Vec<AppInfo> {
+    list_apps_impl()
+}
+
+/// macOS: enumerate `.app` bundles, reading each Info.plist; icons are extracted
+/// from `.icns` in parallel for speed.
+#[cfg(target_os = "macos")]
+fn list_apps_impl() -> Vec<AppInfo> {
     use std::collections::BTreeMap;
 
     let home = std::env::var("HOME").unwrap_or_default();
@@ -230,6 +239,7 @@ fn list_apps() -> Vec<AppInfo> {
 }
 
 /// Extract a small app icon from the bundle's `.icns` as a base64 PNG data URI.
+#[cfg(target_os = "macos")]
 fn icon_data_uri(bundle: &std::path::Path, icon_file: Option<&str>) -> Option<String> {
     use base64::Engine as _;
     use std::fs::File;
@@ -270,6 +280,132 @@ fn icon_data_uri(bundle: &std::path::Path, icon_file: Option<&str>) -> Option<St
         "data:image/png;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(&png)
     ))
+}
+
+/// Windows: enumerate user-facing applications by scanning the standard install
+/// roots for executables. sing-box matches `process_name` by the exe file name
+/// (e.g. `chrome.exe`), so that is what we expose as `exec`. Icons are omitted —
+/// the picker falls back to a placeholder glyph.
+#[cfg(target_os = "windows")]
+fn list_apps_impl() -> Vec<AppInfo> {
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
+        if let Ok(p) = std::env::var(var) {
+            if !p.is_empty() {
+                roots.push(PathBuf::from(p));
+            }
+        }
+    }
+    // Per-user installs (VS Code, Discord, Spotify, …) live here.
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        roots.push(PathBuf::from(local).join("Programs"));
+    }
+
+    // exec (lowercased, e.g. "chrome.exe") -> display name. De-dupes across roots.
+    let mut found: BTreeMap<String, String> = BTreeMap::new();
+
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(&root) else { continue };
+        for entry in entries.flatten() {
+            let dir = entry.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let app_name = dir
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+            if app_name.is_empty() {
+                continue;
+            }
+            // Vendors nest to varying depths (e.g. Google\Chrome\Application\
+            // chrome.exe), so walk a few levels. Bounded depth keeps this fast
+            // and avoids descending into large asset trees.
+            collect_exes(&dir, 3, &app_name, &mut found);
+        }
+    }
+
+    let mut apps: Vec<AppInfo> = found
+        .into_iter()
+        .map(|(exec, name)| AppInfo { name, exec, icon: None })
+        .collect();
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps
+}
+
+/// Recursively collect `.exe` files under `dir` up to `depth` levels, recording
+/// each as exec → display-name. Skips installer/updater/helper noise and a few
+/// large shared directories that never hold a user-launchable app.
+#[cfg(target_os = "windows")]
+fn collect_exes(
+    dir: &std::path::Path,
+    depth: usize,
+    app_name: &str,
+    found: &mut std::collections::BTreeMap<String, String>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let Ok(ft) = entry.file_type() else { continue };
+        let path = entry.path();
+        if ft.is_dir() {
+            if depth <= 1 {
+                continue;
+            }
+            let sub = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if is_noise_dir(&sub) {
+                continue;
+            }
+            collect_exes(&path, depth - 1, app_name, found);
+            continue;
+        }
+        let is_exe = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.eq_ignore_ascii_case("exe"))
+            == Some(true);
+        if !is_exe {
+            continue;
+        }
+        let Some(file) = path.file_name().and_then(|s| s.to_str()) else { continue };
+        let exec = file.to_lowercase();
+        if is_noise_exe(&exec) {
+            continue;
+        }
+        found.entry(exec).or_insert_with(|| app_name.to_string());
+    }
+}
+
+/// Filter out non-user-facing executables (installers, updaters, crash helpers).
+#[cfg(target_os = "windows")]
+fn is_noise_exe(exec: &str) -> bool {
+    const NOISE: [&str; 12] = [
+        "unins", "setup", "install", "update", "crashpad", "crashhandler",
+        "repair", "report", "elevation", "notification", "helper", "service",
+    ];
+    NOISE.iter().any(|n| exec.contains(n))
+}
+
+/// Skip descending into large shared/system directories with no launchable app.
+#[cfg(target_os = "windows")]
+fn is_noise_dir(name: &str) -> bool {
+    const NOISE: [&str; 6] = [
+        "common files", "installer", "cache", "temp", "locales", "resources",
+    ];
+    NOISE.contains(&name)
+}
+
+/// Other platforms: no app picker yet.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn list_apps_impl() -> Vec<AppInfo> {
+    Vec::new()
 }
 
 /// Save the set of apps (process names) that bypass the VPN.

@@ -716,6 +716,7 @@ interface AppInfo {
   icon: string | null;
 }
 let allApps: AppInfo[] = [];
+let appsLoaded = false; // distinguishes "still loading" from "loaded, but empty"
 let exclSet = new Set<string>(); // working selection while the modal is open
 
 function updateExclCount() {
@@ -729,7 +730,12 @@ function renderExclList(query: string) {
   const apps = q ? allApps.filter((a) => a.name.toLowerCase().includes(q)) : allApps;
   list.innerHTML = "";
   if (!apps.length) {
-    list.innerHTML = `<div class="excl-empty mono">${allApps.length ? "Ничего не найдено" : "Загрузка…"}</div>`;
+    const msg = !appsLoaded
+      ? "Загрузка…"
+      : allApps.length
+        ? "Ничего не найдено"
+        : "Приложения не найдены";
+    list.innerHTML = `<div class="excl-empty mono">${msg}</div>`;
     return;
   }
   for (const a of apps) {
@@ -753,11 +759,12 @@ async function openExclusions() {
   $("exclusionsModal").hidden = false;
   ($("exclSearch") as HTMLInputElement).value = "";
   renderExclList("");
-  if (!allApps.length) {
+  if (!appsLoaded) {
     try {
       allApps = await invoke<AppInfo[]>("list_apps");
+      appsLoaded = true;
     } catch (e) {
-      toast(String(e), true);
+      toast(String(e), true); // leave appsLoaded false so the next open retries
     }
     renderExclList("");
   }
