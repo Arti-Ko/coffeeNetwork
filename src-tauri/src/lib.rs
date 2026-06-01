@@ -99,11 +99,13 @@ fn set_settings(mode: Mode, bypass_ru: bool) -> Result<Settings, String> {
     Ok(s)
 }
 
-/// Persist appearance preferences (accent color + theme). Returns full Settings.
+/// Persist appearance preferences (primary + secondary accent, theme).
+/// Returns full Settings.
 #[tauri::command]
-fn set_appearance(accent: String, theme: String) -> Result<Settings, String> {
+fn set_appearance(accent: String, accent2: String, theme: String) -> Result<Settings, String> {
     let mut s = store::load_settings();
     s.accent = accent;
+    s.accent2 = accent2;
     s.theme = theme;
     store::save_settings(&s)?;
     Ok(s)
@@ -282,51 +284,31 @@ fn icon_data_uri(bundle: &std::path::Path, icon_file: Option<&str>) -> Option<St
     ))
 }
 
-/// Windows: enumerate user-facing applications by scanning the standard install
-/// roots for executables. sing-box matches `process_name` by the exe file name
-/// (e.g. `chrome.exe`), so that is what we expose as `exec`. Icons are omitted —
-/// the picker falls back to a placeholder glyph.
+/// Windows: list the user's *installed applications* by reading Start Menu
+/// shortcuts (`.lnk`) — the same set the Windows "Installed apps" screen and the
+/// Start menu show. Each shortcut resolves to its target executable; sing-box
+/// matches `process_name` by that exe file name (e.g. `chrome.exe`), which is
+/// what we expose as `exec`. The shortcut's name is the display label. Icons are
+/// omitted — the picker falls back to a placeholder glyph.
 #[cfg(target_os = "windows")]
 fn list_apps_impl() -> Vec<AppInfo> {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     let mut roots: Vec<PathBuf> = Vec::new();
-    for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
-        if let Ok(p) = std::env::var(var) {
-            if !p.is_empty() {
-                roots.push(PathBuf::from(p));
-            }
-        }
+    // All-users Start Menu.
+    if let Ok(pd) = std::env::var("ProgramData") {
+        roots.push(PathBuf::from(pd).join(r"Microsoft\Windows\Start Menu\Programs"));
     }
-    // Per-user installs (VS Code, Discord, Spotify, …) live here.
-    if let Ok(local) = std::env::var("LOCALAPPDATA") {
-        roots.push(PathBuf::from(local).join("Programs"));
+    // Current-user Start Menu.
+    if let Ok(ad) = std::env::var("APPDATA") {
+        roots.push(PathBuf::from(ad).join(r"Microsoft\Windows\Start Menu\Programs"));
     }
 
     // exec (lowercased, e.g. "chrome.exe") -> display name. De-dupes across roots.
     let mut found: BTreeMap<String, String> = BTreeMap::new();
-
     for root in roots {
-        let Ok(entries) = std::fs::read_dir(&root) else { continue };
-        for entry in entries.flatten() {
-            let dir = entry.path();
-            if !dir.is_dir() {
-                continue;
-            }
-            let app_name = dir
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("")
-                .to_string();
-            if app_name.is_empty() {
-                continue;
-            }
-            // Vendors nest to varying depths (e.g. Google\Chrome\Application\
-            // chrome.exe), so walk a few levels. Bounded depth keeps this fast
-            // and avoids descending into large asset trees.
-            collect_exes(&dir, 3, &app_name, &mut found);
-        }
+        collect_shortcuts(&root, 6, &mut found);
     }
 
     let mut apps: Vec<AppInfo> = found
@@ -337,14 +319,12 @@ fn list_apps_impl() -> Vec<AppInfo> {
     apps
 }
 
-/// Recursively collect `.exe` files under `dir` up to `depth` levels, recording
-/// each as exec → display-name. Skips installer/updater/helper noise and a few
-/// large shared directories that never hold a user-launchable app.
+/// Recursively walk a Start Menu folder (bounded depth) collecting `.lnk`
+/// shortcuts that point at an executable, recording exec → display-name.
 #[cfg(target_os = "windows")]
-fn collect_exes(
+fn collect_shortcuts(
     dir: &std::path::Path,
     depth: usize,
-    app_name: &str,
     found: &mut std::collections::BTreeMap<String, String>,
 ) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
@@ -352,54 +332,61 @@ fn collect_exes(
         let Ok(ft) = entry.file_type() else { continue };
         let path = entry.path();
         if ft.is_dir() {
-            if depth <= 1 {
-                continue;
+            if depth > 1 {
+                collect_shortcuts(&path, depth - 1, found);
             }
-            let sub = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if is_noise_dir(&sub) {
-                continue;
-            }
-            collect_exes(&path, depth - 1, app_name, found);
             continue;
         }
-        let is_exe = path
+        let is_lnk = path
             .extension()
             .and_then(|e| e.to_str())
-            .map(|e| e.eq_ignore_ascii_case("exe"))
+            .map(|e| e.eq_ignore_ascii_case("lnk"))
             == Some(true);
-        if !is_exe {
+        if !is_lnk {
             continue;
         }
-        let Some(file) = path.file_name().and_then(|s| s.to_str()) else { continue };
+        let Some(target) = shortcut_target(&path) else { continue };
+        let Some(file) = target.file_name().and_then(|s| s.to_str()) else { continue };
         let exec = file.to_lowercase();
-        if is_noise_exe(&exec) {
+        // Only real apps: an .exe target, minus installer/updater/helper noise.
+        if !exec.ends_with(".exe") || is_noise_exe(&exec) {
             continue;
         }
-        found.entry(exec).or_insert_with(|| app_name.to_string());
+        // Display name = the shortcut's own name (e.g. "Google Chrome").
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(file)
+            .to_string();
+        found.entry(exec).or_insert(name);
     }
+}
+
+/// Resolve a `.lnk` shortcut to its target path. Prefers the absolute target
+/// recorded in the link, falling back to the link-relative path.
+#[cfg(target_os = "windows")]
+fn shortcut_target(lnk: &std::path::Path) -> Option<std::path::PathBuf> {
+    use std::convert::TryFrom;
+    let parsed = parselnk::Lnk::try_from(lnk).ok()?;
+    if let Some(abs) = parsed.link_info.local_base_path {
+        if !abs.is_empty() {
+            return Some(std::path::PathBuf::from(abs));
+        }
+    }
+    if let Some(rel) = parsed.string_data.relative_path {
+        return Some(lnk.parent().map(|p| p.join(&rel)).unwrap_or(rel));
+    }
+    None
 }
 
 /// Filter out non-user-facing executables (installers, updaters, crash helpers).
 #[cfg(target_os = "windows")]
 fn is_noise_exe(exec: &str) -> bool {
-    const NOISE: [&str; 12] = [
-        "unins", "setup", "install", "update", "crashpad", "crashhandler",
-        "repair", "report", "elevation", "notification", "helper", "service",
+    const NOISE: [&str; 10] = [
+        "unins", "setup", "install", "crashpad", "crashhandler", "repair",
+        "elevation", "notification", "helper", "service",
     ];
     NOISE.iter().any(|n| exec.contains(n))
-}
-
-/// Skip descending into large shared/system directories with no launchable app.
-#[cfg(target_os = "windows")]
-fn is_noise_dir(name: &str) -> bool {
-    const NOISE: [&str; 6] = [
-        "common files", "installer", "cache", "temp", "locales", "resources",
-    ];
-    NOISE.contains(&name)
 }
 
 /// Other platforms: no app picker yet.
@@ -544,7 +531,17 @@ async fn check_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
     }
 }
 
-/// Download + install the pending update, then relaunch the app.
+/// Download progress, emitted to the UI as `update-progress` so it can drive a
+/// real progress bar. `percent` is `None` while the total size is still unknown.
+#[derive(Serialize, Clone)]
+pub struct DownloadProgress {
+    downloaded: u64,
+    total: Option<u64>,
+    percent: Option<f64>,
+}
+
+/// Download + install the pending update, then relaunch the app. Emits
+/// `update-progress` events throughout the download so the UI can show a bar.
 #[tauri::command]
 async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;
@@ -552,8 +549,23 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
         return Err("Обновлений нет".into());
     };
+
+    let mut downloaded: u64 = 0;
+    let app_dl = app.clone();
     update
-        .download_and_install(|_chunk, _total| {}, || {})
+        .download_and_install(
+            move |chunk, total| {
+                downloaded = downloaded.saturating_add(chunk as u64);
+                let percent = total.and_then(|t| {
+                    (t > 0).then(|| (downloaded as f64 / t as f64 * 100.0).min(100.0))
+                });
+                let _ = app_dl.emit(
+                    "update-progress",
+                    DownloadProgress { downloaded, total, percent },
+                );
+            },
+            || {},
+        )
         .await
         .map_err(|e| e.to_string())?;
     app.restart();

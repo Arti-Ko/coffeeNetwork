@@ -153,7 +153,15 @@
           <button id="updLater" class="btn-ghost mono">В следующий раз</button>
           <button id="updSkip" class="btn-ghost mono">Пропустить версию</button>
         </div>
-        <div class="modal__progress mono" id="updProgress" hidden>ЗАГРУЗКА…</div>
+        <div class="upd-progress" id="updProgress" hidden>
+          <div class="upd-progress__head mono">
+            <span id="updProgressLabel">ЗАГРУЗКА…</span>
+            <span id="updProgressPct">0%</span>
+          </div>
+          <div class="upd-progress__track">
+            <div class="upd-progress__fill" id="updProgressFill"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -173,6 +181,15 @@
           placeholder="Поиск приложения…"
           spellcheck="false"
         />
+        <div class="excl-add">
+          <input
+            id="exclPath"
+            class="excl-search mono"
+            placeholder="Путь к .exe или имя процесса…"
+            spellcheck="false"
+          />
+          <button id="exclAddBtn" class="btn-ghost mono">+ Добавить</button>
+        </div>
         <div id="exclList" class="excl-list"></div>
         <div class="modal__actions">
           <button id="exclSave" class="btn-solid mono">Сохранить</button>
@@ -209,11 +226,25 @@
         </section>
 
         <section class="set">
-          <div class="set__label mono">АКЦЕНТ</div>
+          <div class="set__label mono">ОСНОВНОЙ АКЦЕНТ</div>
           <div class="swatches" id="swatches"></div>
-          <label class="set__custom mono">
-            <span>Свой цвет</span>
-            <input type="color" id="accentCustom" value="#e8a33d" />
+          <label class="accent-custom mono">
+            <span class="accent-custom__txt">Свой цвет</span>
+            <span class="accent-custom__chip">
+              <input type="color" id="accentCustom" value="#e8a33d" aria-label="Свой основной цвет" />
+            </span>
+          </label>
+        </section>
+
+        <section class="set">
+          <div class="set__label mono">ВСПОМОГАТЕЛЬНЫЙ АКЦЕНТ</div>
+          <div class="set__hint mono">Подсветка фона</div>
+          <div class="swatches" id="swatches2"></div>
+          <label class="accent-custom mono">
+            <span class="accent-custom__txt">Свой цвет</span>
+            <span class="accent-custom__chip">
+              <input type="color" id="accentCustom2" value="#e8a33d" aria-label="Свой вспомогательный цвет" />
+            </span>
           </label>
         </section>
       </div>

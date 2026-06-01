@@ -1,6 +1,6 @@
 [package]
 name = "splitbox"
-version = "0.1.9"
+version = "0.1.10"
 description = "Powerful cross-platform VPN client with smart RU split-tunneling"
 authors = ["you"]
 edition = "2021"
@@ -24,6 +24,7 @@ base64 = "0.22"
 urlencoding = "2"
 url = "2"
 dirs = "5"
+parselnk = "0.1"
 uuid = { version = "1", features = ["v4"] }
 thiserror = "1"
 plist = "1"

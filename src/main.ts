@@ -28,6 +28,7 @@ interface Settings {
   bypass_ru: boolean;
   active_server: string | null;
   accent: string; // named preset ("amber"…) or hex "#rrggbb"
+  accent2: string; // secondary accent (background glow) — same value space
   theme: string; // "dark" | "light" | "system"
   excluded_apps: string[]; // process names that bypass the VPN
 }
@@ -41,6 +42,7 @@ let settings: Settings = {
   bypass_ru: true,
   active_server: null,
   accent: "amber",
+  accent2: "amber",
   theme: "dark",
   excluded_apps: [],
 };
@@ -106,21 +108,36 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** Resolve a preset name or hex value to a concrete color string. */
+function accentColor(value: string): string {
+  return value.startsWith("#") ? value : ACCENTS[value] ?? ACCENTS.amber;
+}
+
+/** Same color at a given alpha — works for both hex and preset (oklch) inputs. */
+function accentAlpha(value: string, a: number): string {
+  return value.startsWith("#")
+    ? hexToRgba(value, a)
+    : accentColor(value).replace(/\)$/, ` / ${a})`);
+}
+
 function applyAccent(value: string) {
   const root = document.documentElement.style;
-  let accent: string, soft: string, ink: string;
-  if (value.startsWith("#")) {
-    accent = value;
-    soft = hexToRgba(value, 0.16);
-    ink = luminance(value) > 0.55 ? "oklch(18% 0.02 60)" : "oklch(97% 0.01 80)";
-  } else {
-    accent = ACCENTS[value] ?? ACCENTS.amber;
-    soft = accent.replace(/\)$/, " / 0.16)");
-    ink = "oklch(18% 0.02 60)";
-  }
+  const accent = accentColor(value);
+  const ink = value.startsWith("#")
+    ? luminance(value) > 0.55
+      ? "oklch(18% 0.02 60)"
+      : "oklch(97% 0.01 80)"
+    : "oklch(18% 0.02 60)";
   root.setProperty("--accent", accent);
-  root.setProperty("--accent-soft", soft);
+  root.setProperty("--accent-soft", accentAlpha(value, 0.16));
   root.setProperty("--accent-ink", ink);
+}
+
+/** Secondary accent — tints the ambient background glow. */
+function applyAccent2(value: string) {
+  const root = document.documentElement.style;
+  root.setProperty("--accent-2", accentColor(value));
+  root.setProperty("--accent-2-glow", accentAlpha(value, 0.2));
 }
 
 let themePref = "dark";
@@ -138,6 +155,7 @@ sysDark.addEventListener("change", () => {
 
 function applyAppearance(s: Settings) {
   applyAccent(s.accent || "amber");
+  applyAccent2(s.accent2 || "amber");
   applyTheme(s.theme || "dark");
 }
 
@@ -579,7 +597,34 @@ function hideUpdateModal() {
   $("updateModal").hidden = true;
 }
 
+interface DownloadProgress {
+  downloaded: number;
+  total: number | null;
+  percent: number | null;
+}
+
+/** Drive the determinate progress bar; `percent === null` → indeterminate. */
+function setUpdProgress(p: DownloadProgress) {
+  const bar = $("updProgress");
+  const fill = $("updProgressFill");
+  const pct = $("updProgressPct");
+  const label = $("updProgressLabel");
+  if (p.percent == null) {
+    bar.classList.add("indeterminate");
+    fill.style.width = "100%";
+    pct.textContent = "";
+    label.textContent = "ЗАГРУЗКА…";
+    return;
+  }
+  bar.classList.remove("indeterminate");
+  const v = Math.round(p.percent);
+  fill.style.width = `${v}%`;
+  pct.textContent = `${v}%`;
+  label.textContent = v >= 100 ? "УСТАНОВКА…" : "ЗАГРУЗКА…";
+}
+
 async function runInstall() {
+  setUpdProgress({ downloaded: 0, total: null, percent: 0 });
   $("updProgress").hidden = false;
   ($("updNow") as HTMLButtonElement).disabled = true;
   ($("updLater") as HTMLButtonElement).disabled = true;
@@ -589,6 +634,7 @@ async function runInstall() {
   } catch (e) {
     toast(String(e), true);
     hideUpdateModal();
+    ($("updNow") as HTMLButtonElement).disabled = false;
     ($("updLater") as HTMLButtonElement).disabled = false;
     ($("updSkip") as HTMLButtonElement).disabled = false;
   }
@@ -636,18 +682,26 @@ function setUpdMsg(text: string, kind: "" | "ok" | "err" = "") {
   el.className = `set__msg mono${kind ? " " + kind : ""}`;
 }
 
-function renderSwatches() {
-  const box = $("swatches");
+const DEFAULT_CUSTOM = "#e8a33d";
+
+/** Render one preset row into `boxId`, marking `current` selected. */
+function renderSwatchRow(boxId: string, current: string, onPick: (name: string) => void) {
+  const box = $(boxId);
   box.innerHTML = "";
   for (const [name, color] of Object.entries(ACCENTS)) {
     const b = document.createElement("button");
     b.className = "swatch";
     b.style.setProperty("--sw", color);
     b.title = name;
-    if (settings.accent === name) b.classList.add("selected");
-    b.addEventListener("click", () => saveAppearance(name, settings.theme));
+    if (current === name) b.classList.add("selected");
+    b.addEventListener("click", () => onPick(name));
     box.appendChild(b);
   }
+}
+
+function renderSwatches() {
+  renderSwatchRow("swatches", settings.accent, (name) => saveAppearance({ accent: name }));
+  renderSwatchRow("swatches2", settings.accent2, (name) => saveAppearance({ accent2: name }));
 }
 
 function renderThemeSeg() {
@@ -656,17 +710,26 @@ function renderThemeSeg() {
   });
 }
 
-async function saveAppearance(accent: string, theme: string) {
+/** Apply a partial appearance change (any of accent / accent2 / theme). */
+async function saveAppearance(patch: Partial<Pick<Settings, "accent" | "accent2" | "theme">>) {
   // optimistic: apply instantly, then persist
-  settings = { ...settings, accent, theme };
+  settings = { ...settings, ...patch };
   applyAppearance(settings);
   renderSwatches();
   renderThemeSeg();
-  if (!accent.startsWith("#")) {
-    ($("accentCustom") as HTMLInputElement).value = "#e8a33d";
+  // when a preset is picked, reset the matching custom picker to its default
+  if (patch.accent && !patch.accent.startsWith("#")) {
+    ($("accentCustom") as HTMLInputElement).value = DEFAULT_CUSTOM;
+  }
+  if (patch.accent2 && !patch.accent2.startsWith("#")) {
+    ($("accentCustom2") as HTMLInputElement).value = DEFAULT_CUSTOM;
   }
   try {
-    settings = await invoke<Settings>("set_appearance", { accent, theme });
+    settings = await invoke<Settings>("set_appearance", {
+      accent: settings.accent,
+      accent2: settings.accent2,
+      theme: settings.theme,
+    });
   } catch (e) {
     toast(String(e), true);
   }
@@ -675,8 +738,10 @@ async function saveAppearance(accent: string, theme: string) {
 async function openSettings() {
   renderSwatches();
   renderThemeSeg();
-  const custom = $("accentCustom") as HTMLInputElement;
-  if (settings.accent.startsWith("#")) custom.value = settings.accent;
+  const c1 = $("accentCustom") as HTMLInputElement;
+  const c2 = $("accentCustom2") as HTMLInputElement;
+  c1.value = settings.accent.startsWith("#") ? settings.accent : DEFAULT_CUSTOM;
+  c2.value = settings.accent2.startsWith("#") ? settings.accent2 : DEFAULT_CUSTOM;
   setUpdMsg("");
   $("setVersion").textContent = currentVersion;
   $("settingsModal").hidden = false;
@@ -692,10 +757,13 @@ function bindSettings() {
     el.addEventListener("click", closeSettings)
   );
   document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) =>
-    b.addEventListener("click", () => saveAppearance(settings.accent, b.dataset.theme as string))
+    b.addEventListener("click", () => saveAppearance({ theme: b.dataset.theme as string }))
   );
   ($("accentCustom") as HTMLInputElement).addEventListener("input", (e) =>
-    saveAppearance((e.target as HTMLInputElement).value, settings.theme)
+    saveAppearance({ accent: (e.target as HTMLInputElement).value })
+  );
+  ($("accentCustom2") as HTMLInputElement).addEventListener("input", (e) =>
+    saveAppearance({ accent2: (e.target as HTMLInputElement).value })
   );
   $("setCheckUpd").addEventListener("click", () => checkForUpdate(true));
   // Esc closes settings (and dismisses the update dialog as «later»)
@@ -784,12 +852,39 @@ async function saveExclusions() {
   if (status.running) await reconnect();
 }
 
+/** Add an exclusion by a file path or raw process name (the basename is used as
+ *  sing-box `process_name`). Lets the user cover apps the picker didn't list. */
+function addCustomExclusion() {
+  const input = $("exclPath") as HTMLInputElement;
+  const raw = input.value.trim();
+  if (!raw) return;
+  // Reduce a path ("C:\…\app.exe" or "/Applications/App.app/…/App") to its name.
+  const exec = raw.split(/[\\/]/).pop()!.trim();
+  if (!exec) return;
+  // Surface it as a row so it's visible and selected, like any listed app.
+  if (!allApps.some((a) => a.exec === exec)) {
+    allApps = [{ name: exec, exec, icon: null }, ...allApps];
+  }
+  exclSet.add(exec);
+  input.value = "";
+  ($("exclSearch") as HTMLInputElement).value = "";
+  renderExclList("");
+  toast(`Добавлено в игнор: ${exec}`);
+}
+
 function bindExclusions() {
   $("exclToggle").addEventListener("click", openExclusions);
   $("exclSave").addEventListener("click", saveExclusions);
   ($("exclSearch") as HTMLInputElement).addEventListener("input", (e) =>
     renderExclList((e.target as HTMLInputElement).value)
   );
+  $("exclAddBtn").addEventListener("click", addCustomExclusion);
+  ($("exclPath") as HTMLInputElement).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomExclusion();
+    }
+  });
   document.querySelectorAll<HTMLElement>("[data-close-excl]").forEach((el) =>
     el.addEventListener("click", () => ($("exclusionsModal").hidden = true))
   );
@@ -819,6 +914,7 @@ listen("status-changed", async () => {
 });
 listen("tray://check-update", () => checkForUpdate(true));
 listen<string>("tray-error", (e) => toast(e.payload, true));
+listen<DownloadProgress>("update-progress", (e) => setUpdProgress(e.payload));
 
 // keep status fresh in case the core dies unexpectedly
 window.setInterval(async () => {

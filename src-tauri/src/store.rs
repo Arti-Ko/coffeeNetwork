@@ -16,6 +16,10 @@ pub struct Settings {
     /// Accent: a named preset ("amber", "teal", …) or a hex color ("#rrggbb").
     #[serde(default = "default_accent")]
     pub accent: String,
+    /// Secondary/auxiliary accent — tints the ambient background glow. Same
+    /// value space as `accent` (named preset or hex).
+    #[serde(default = "default_accent")]
+    pub accent2: String,
     /// Theme: "dark" | "light" | "system".
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -38,6 +42,7 @@ impl Default for Settings {
             bypass_ru: true,
             active_server: None,
             accent: default_accent(),
+            accent2: default_accent(),
             theme: default_theme(),
             excluded_apps: Vec::new(),
         }
