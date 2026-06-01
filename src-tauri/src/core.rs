@@ -58,10 +58,11 @@ fn config_dir() -> Result<PathBuf, String> {
     Ok(base)
 }
 
-/// $HOME/Library/Application Support on macOS.
+/// Per-platform application-data root (macOS: ~/Library/Application Support,
+/// Windows: %APPDATA%, Linux: ~/.local/share). The `coffeeNetwork` subdir is
+/// appended by [`config_dir`].
 fn dirs_config_home() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| "Переменная HOME не задана".to_string())?;
-    Ok(PathBuf::from(home).join("Library/Application Support"))
+    dirs::data_dir().ok_or_else(|| "Не удалось определить каталог данных пользователя".to_string())
 }
 
 fn config_path() -> Result<PathBuf, String> {

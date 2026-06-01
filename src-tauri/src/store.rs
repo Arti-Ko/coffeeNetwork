@@ -44,9 +44,15 @@ impl Default for Settings {
     }
 }
 
+/// App data directory, resolved per-platform:
+///   macOS   → ~/Library/Application Support/coffeeNetwork
+///   Windows → %APPDATA%\coffeeNetwork
+///   Linux   → ~/.local/share/coffeeNetwork
+/// The macOS path is unchanged from previous versions, so existing data is kept.
 fn base_dir() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME не задана".to_string())?;
-    let dir = PathBuf::from(home).join("Library/Application Support/coffeeNetwork");
+    let dir = dirs::data_dir()
+        .ok_or_else(|| "Не удалось определить каталог данных пользователя".to_string())?
+        .join("coffeeNetwork");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
