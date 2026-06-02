@@ -1,4 +1,9 @@
 //! sing-box process lifecycle: start, stop, status, logs.
+//!
+//! Two launch paths:
+//!   • System-proxy mode runs sing-box unprivileged ([`spawn_plain`]).
+//!   • TUN mode needs admin/root, so it is launched elevated — via `osascript`
+//!     on macOS and an elevated `Start-Process` on Windows ([`spawn_elevated`]).
 
 use std::fs;
 use std::io::Read;
@@ -7,9 +12,15 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use serde_json::json;
+
 use crate::parser::Server;
 use crate::singbox::{self, Mode};
 use crate::sysproxy;
+
+/// Windows: hide the console window of spawned helper processes.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[derive(Default)]
 pub struct CoreState {
@@ -20,7 +31,7 @@ pub struct CoreState {
 struct Running {
     /// Child handle for non-elevated (system proxy) runs.
     child: Option<Child>,
-    /// PID for elevated (TUN) runs launched via osascript.
+    /// PID for elevated (TUN) runs launched via the OS elevation helper.
     elevated_pid: Option<u32>,
     mode: Option<Mode>,
     server_id: Option<String>,
@@ -38,8 +49,16 @@ impl CoreState {
                 }
                 _ => true,
             }
+        } else if let Some(pid) = guard.elevated_pid {
+            if pid_alive(pid) {
+                true
+            } else {
+                guard.elevated_pid = None;
+                guard.server_id = None;
+                false
+            }
         } else {
-            guard.elevated_pid.is_some()
+            false
         }
     }
 
@@ -86,15 +105,25 @@ pub fn connect(
     let bin = singbox::locate_binary()
         .ok_or("Ядро sing-box не найдено. Установите его: brew install sing-box")?;
 
-    let config = singbox::build_config(server, mode, bypass_ru, excluded);
+    let mut config = singbox::build_config(server, mode, bypass_ru, excluded);
     let cfg_path = config_path()?;
+    let log_file = log_path()?;
+
+    // Elevated launchers can't capture the child's stdout, so for TUN we point
+    // sing-box's own logger at the file. System-proxy mode keeps capturing
+    // stdout/stderr directly (catches even pre-logger startup errors).
+    if matches!(mode, Mode::Tun) {
+        if let Some(obj) = config.get_mut("log").and_then(|l| l.as_object_mut()) {
+            obj.insert("output".into(), json!(log_file.to_string_lossy()));
+        }
+    }
+
     fs::write(
         &cfg_path,
         serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?,
     )
     .map_err(|e| format!("Не удалось записать конфиг: {e}"))?;
 
-    let log_file = log_path()?;
     let _ = fs::write(&log_file, b""); // truncate previous log
 
     match mode {
@@ -119,14 +148,22 @@ fn spawn_plain(
     // read-only → "open cache.db: read-only file system" and the core dies.
     let workdir = config_dir()?;
 
-    let child = Command::new(bin)
-        .arg("run")
+    let mut cmd = Command::new(bin);
+    cmd.arg("run")
         .arg("-c")
         .arg(cfg)
         .current_dir(&workdir)
         .stdout(Stdio::from(out))
         .stderr(Stdio::from(err))
-        .stdin(Stdio::null())
+        .stdin(Stdio::null());
+    // Don't flash a console window on Windows (GUI app spawning a console child).
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let child = cmd
         .spawn()
         .map_err(|e| format!("Не удалось запустить sing-box: {e}"))?;
 
@@ -137,55 +174,28 @@ fn spawn_plain(
         guard.server_id = Some(server.id.clone());
     }
 
-    // Give the core a moment; if it died immediately, surface the log.
-    std::thread::sleep(Duration::from_millis(700));
-    if !state.is_running() {
+    // Give the core time to bind (Windows + first-run Defender scan can be slow).
+    // Poll instead of one fixed sleep so we fail fast if it dies, and tolerate a
+    // slow-but-healthy start.
+    if !wait_until_ready(state, Duration::from_millis(2500)) {
         let log = read_log().unwrap_or_default();
-        return Err(format!(
-            "sing-box не запустился.\n{}",
-            tail(&log, 12)
-        ));
+        return Err(format!("sing-box не запустился.\n{}", tail(&log, 12)));
     }
     Ok(())
 }
 
-/// TUN requires root: launch via osascript so macOS shows one auth prompt.
+/// TUN requires admin/root. Launch via the OS elevation helper (one prompt),
+/// capture the elevated child's PID, and confirm it stayed up.
 fn spawn_elevated(
     state: &CoreState,
     bin: &PathBuf,
     cfg: &PathBuf,
-    log_file: &PathBuf,
+    _log_file: &PathBuf,
     server: &Server,
     mode: Mode,
 ) -> Result<(), String> {
-    // cd into the writable config dir so sing-box can create cache.db there
-    // (otherwise CWD is `/` and cache-file init fails on the read-only fs).
     let workdir = config_dir()?;
-    let script = format!(
-        "do shell script \"cd '{dir}' && '{bin}' run -c '{cfg}' > '{log}' 2>&1 & echo $!\" with administrator privileges",
-        dir = workdir.display(),
-        bin = bin.display(),
-        cfg = cfg.display(),
-        log = log_file.display(),
-    );
-
-    let out = Command::new("/usr/bin/osascript")
-        .arg("-e")
-        .arg(&script)
-        .output()
-        .map_err(|e| format!("osascript: {e}"))?;
-
-    if !out.status.success() {
-        return Err(format!(
-            "Не удалось запустить TUN (нужны права администратора): {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-
-    let pid: u32 = String::from_utf8_lossy(&out.stdout)
-        .trim()
-        .parse()
-        .map_err(|_| "Не удалось получить PID процесса TUN".to_string())?;
+    let pid = elevate_run(bin, cfg, &workdir)?;
 
     {
         let mut guard = state.inner.lock().unwrap();
@@ -194,12 +204,14 @@ fn spawn_elevated(
         guard.server_id = Some(server.id.clone());
     }
 
-    std::thread::sleep(Duration::from_millis(900));
+    std::thread::sleep(Duration::from_millis(1200));
     if !pid_alive(pid) {
-        let mut guard = state.inner.lock().unwrap();
-        guard.elevated_pid = None;
-        guard.server_id = None;
-        drop(guard);
+        {
+            let mut guard = state.inner.lock().unwrap();
+            guard.elevated_pid = None;
+            guard.server_id = None;
+        }
+        kill_elevated(pid); // reap any half-started process
         let log = read_log().unwrap_or_default();
         return Err(format!("TUN-ядро не запустилось.\n{}", tail(&log, 12)));
     }
@@ -220,26 +232,172 @@ pub fn stop(state: &CoreState) -> Result<(), String> {
         let _ = child.wait();
     }
     if let Some(pid) = pid {
-        // root process — kill via osascript admin.
-        let script = format!(
-            "do shell script \"kill {pid} 2>/dev/null || kill -9 {pid}\" with administrator privileges"
-        );
-        let _ = Command::new("/usr/bin/osascript").arg("-e").arg(&script).output();
+        kill_elevated(pid);
     }
 
-    // Safety: make sure the system proxy isn't left dangling.
+    // Safety: make sure the system proxy isn't left dangling at a dead port
+    // (a hard kill gives sing-box no chance to revert it).
     sysproxy::clear_all();
     Ok(())
 }
 
+/// Poll until the core is confirmed running, or `budget` elapses. Returns false
+/// only if the process actually died within the budget.
+fn wait_until_ready(state: &CoreState, budget: Duration) -> bool {
+    let step = Duration::from_millis(150);
+    let mut waited = Duration::ZERO;
+    // Let it get going before the first check.
+    std::thread::sleep(step);
+    waited += step;
+    while waited < budget {
+        if !state.is_running() {
+            return false;
+        }
+        std::thread::sleep(step);
+        waited += step;
+    }
+    state.is_running()
+}
+
+// ---------------------------------------------------------------------------
+// platform: elevation + liveness
+// ---------------------------------------------------------------------------
+
+/// macOS: one auth prompt via `osascript`. Backgrounds sing-box as root and
+/// echoes its PID. Logging goes to the file configured in `log.output`.
+#[cfg(target_os = "macos")]
+fn elevate_run(bin: &PathBuf, cfg: &PathBuf, workdir: &PathBuf) -> Result<u32, String> {
+    // `exec` so the backgrounded job *becomes* sing-box — `$!` is then the real
+    // sing-box PID, so a later `kill` stops it instead of orphaning a root TUN
+    // process behind a short-lived wrapper shell.
+    let script = format!(
+        "do shell script \"cd '{dir}' && exec '{bin}' run -c '{cfg}' >/dev/null 2>&1 & echo $!\" with administrator privileges",
+        dir = workdir.display(),
+        bin = bin.display(),
+        cfg = cfg.display(),
+    );
+    let out = Command::new("/usr/bin/osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .map_err(|e| format!("osascript: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "Не удалось запустить TUN (нужны права администратора): {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .parse()
+        .map_err(|_| "Не удалось получить PID процесса TUN".to_string())
+}
+
+/// Windows: elevate via `Start-Process -Verb RunAs` (one UAC prompt), run hidden,
+/// and return the elevated child's PID. Logging goes to `log.output`.
+#[cfg(target_os = "windows")]
+fn elevate_run(bin: &PathBuf, cfg: &PathBuf, workdir: &PathBuf) -> Result<u32, String> {
+    use std::os::windows::process::CommandExt;
+    // The config arg is wrapped in literal double-quotes so sing-box receives a
+    // single argument even when the path contains spaces (Start-Process joins
+    // ArgumentList with spaces and does not re-quote elements).
+    let ps = format!(
+        "$ErrorActionPreference='Stop'; \
+         $p = Start-Process -FilePath {bin} -ArgumentList @('run','-c',{cfg}) \
+         -WorkingDirectory {dir} -WindowStyle Hidden -Verb RunAs -PassThru; \
+         [Console]::Out.Write($p.Id)",
+        bin = ps_quote(&bin.display().to_string()),
+        cfg = ps_quote(&format!("\"{}\"", cfg.display())),
+        dir = ps_quote(&workdir.display().to_string()),
+    );
+    let out = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &ps])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("powershell: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "Не удалось запустить TUN (нужны права администратора): {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .parse()
+        .map_err(|_| "Не удалось получить PID процесса TUN".to_string())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn elevate_run(_bin: &PathBuf, _cfg: &PathBuf, _workdir: &PathBuf) -> Result<u32, String> {
+    Err("Режим TUN на этой платформе не поддерживается".to_string())
+}
+
+/// Wrap a string as a PowerShell single-quoted literal (doubling inner quotes).
+#[cfg(target_os = "windows")]
+fn ps_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+/// macOS: existence check that works for root-owned processes too. `kill -0`
+/// returns EPERM (not success) for a process the caller can't signal, so we use
+/// `ps -p`, which reports existence regardless of ownership.
+#[cfg(target_os = "macos")]
 fn pid_alive(pid: u32) -> bool {
-    Command::new("/bin/kill")
-        .arg("-0")
+    // `ps -p <pid>` exits 0 iff a matching process exists (any owner), 1 otherwise.
+    Command::new("/bin/ps")
+        .arg("-p")
         .arg(pid.to_string())
+        .arg("-o")
+        .arg("pid=")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
+
+/// Windows: existence check via `tasklist`. Matching row contains the PID; a
+/// no-match prints an "INFO: No tasks…" line that never contains the number.
+#[cfg(target_os = "windows")]
+fn pid_alive(pid: u32) -> bool {
+    use std::os::windows::process::CommandExt;
+    Command::new("tasklist")
+        .args(["/NH", "/FI"])
+        .arg(format!("PID eq {pid}"))
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()))
+        .unwrap_or(false)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn pid_alive(_pid: u32) -> bool {
+    false
+}
+
+/// macOS: kill the root sing-box via an elevated `osascript`.
+#[cfg(target_os = "macos")]
+fn kill_elevated(pid: u32) {
+    let script = format!(
+        "do shell script \"kill {pid} 2>/dev/null || kill -9 {pid}\" with administrator privileges"
+    );
+    let _ = Command::new("/usr/bin/osascript").arg("-e").arg(&script).output();
+}
+
+/// Windows: kill the elevated sing-box (and its tree) via an elevated `taskkill`.
+#[cfg(target_os = "windows")]
+fn kill_elevated(pid: u32) {
+    use std::os::windows::process::CommandExt;
+    let ps = format!(
+        "Start-Process -FilePath 'taskkill' -ArgumentList @('/PID','{pid}','/T','/F') \
+         -Verb RunAs -WindowStyle Hidden -Wait"
+    );
+    let _ = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &ps])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn kill_elevated(_pid: u32) {}
 
 /// Read the current core log (tail handled by caller / UI).
 pub fn read_log() -> Result<String, String> {
