@@ -37,6 +37,20 @@ struct Running {
     server_id: Option<String>,
 }
 
+/// Result of probing whether a tracked PID is still alive.
+///
+/// `Unknown` means the probe *itself* could not run (e.g. the `ps`/`tasklist`
+/// helper failed to spawn). It must NOT be conflated with `Dead`: a transient
+/// spawn hiccup would otherwise flip a perfectly healthy elevated core to
+/// "disconnected" and permanently drop its PID, leaving the UI stuck on
+/// "отключено" while the tunnel keeps routing traffic.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Liveness {
+    Alive,
+    Dead,
+    Unknown,
+}
+
 impl CoreState {
     pub fn is_running(&self) -> bool {
         let mut guard = self.inner.lock().unwrap();
@@ -50,12 +64,18 @@ impl CoreState {
                 _ => true,
             }
         } else if let Some(pid) = guard.elevated_pid {
-            if pid_alive(pid) {
-                true
-            } else {
-                guard.elevated_pid = None;
-                guard.server_id = None;
-                false
+            match probe_pid(pid) {
+                // Confirmed gone (the probe ran and found no such process):
+                // drop the tracked state so a later connect starts clean.
+                Liveness::Dead => {
+                    guard.elevated_pid = None;
+                    guard.server_id = None;
+                    false
+                }
+                // Alive, or the probe couldn't even run — assume still up. A
+                // transient failure to spawn `ps`/`tasklist` must never be read
+                // as "the VPN died".
+                Liveness::Alive | Liveness::Unknown => true,
             }
         } else {
             false
@@ -205,7 +225,7 @@ fn spawn_elevated(
     }
 
     std::thread::sleep(Duration::from_millis(1200));
-    if !pid_alive(pid) {
+    if probe_pid(pid) == Liveness::Dead {
         {
             let mut guard = state.inner.lock().unwrap();
             guard.elevated_pid = None;
@@ -341,36 +361,46 @@ fn ps_quote(s: &str) -> String {
 /// macOS: existence check that works for root-owned processes too. `kill -0`
 /// returns EPERM (not success) for a process the caller can't signal, so we use
 /// `ps -p`, which reports existence regardless of ownership.
+///
+/// Crucially this separates "ran, no such process" (`Dead`) from "couldn't run
+/// the probe at all" (`Unknown`) — see [`Liveness`].
 #[cfg(target_os = "macos")]
-fn pid_alive(pid: u32) -> bool {
-    // `ps -p <pid>` exits 0 iff a matching process exists (any owner), 1 otherwise.
-    Command::new("/bin/ps")
+fn probe_pid(pid: u32) -> Liveness {
+    // `ps -p <pid>` exits 0 iff a matching process exists (any owner), 1 if not.
+    match Command::new("/bin/ps")
         .arg("-p")
         .arg(pid.to_string())
         .arg("-o")
         .arg("pid=")
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    {
+        Ok(o) if o.status.success() => Liveness::Alive,
+        Ok(_) => Liveness::Dead,
+        Err(_) => Liveness::Unknown,
+    }
 }
 
 /// Windows: existence check via `tasklist`. Matching row contains the PID; a
 /// no-match prints an "INFO: No tasks…" line that never contains the number.
+/// A failure to launch `tasklist` is reported as `Unknown`, not `Dead`.
 #[cfg(target_os = "windows")]
-fn pid_alive(pid: u32) -> bool {
+fn probe_pid(pid: u32) -> Liveness {
     use std::os::windows::process::CommandExt;
-    Command::new("tasklist")
+    match Command::new("tasklist")
         .args(["/NH", "/FI"])
         .arg(format!("PID eq {pid}"))
         .creation_flags(CREATE_NO_WINDOW)
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()))
-        .unwrap_or(false)
+    {
+        Ok(o) if String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()) => Liveness::Alive,
+        Ok(_) => Liveness::Dead,
+        Err(_) => Liveness::Unknown,
+    }
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-fn pid_alive(_pid: u32) -> bool {
-    false
+fn probe_pid(_pid: u32) -> Liveness {
+    Liveness::Unknown
 }
 
 /// macOS: kill the root sing-box via an elevated `osascript`.
