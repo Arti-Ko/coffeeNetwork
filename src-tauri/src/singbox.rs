@@ -38,7 +38,6 @@ const RS_GEOSITE_PRIVATE: &str =
 pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool, excluded: &[String]) -> Value {
     let mut proxy = server.outbound.clone();
     proxy["tag"] = json!(PROXY_TAG);
-    apply_transport_tuning(&mut proxy);
 
     let inbounds = match mode {
         Mode::SystemProxy => json!([{
@@ -81,26 +80,6 @@ pub fn build_config(server: &Server, mode: Mode, bypass_ru: bool, excluded: &[St
             "clash_api": { "external_controller": "127.0.0.1:19099" }
         }
     })
-}
-
-/// Low-risk dialer tuning applied to the proxy outbound for faster, sturdier
-/// connections. Only fills in options the share-link didn't already set, so a
-/// server-provided value always wins.
-///
-/// * `tcp_fast_open` — saves a round-trip on the TCP-based protocols
-///   (vless/trojan/vmess/shadowsocks); a harmless no-op for the QUIC ones
-///   (hysteria2/tuic). sing-box silently falls back if the peer doesn't support it.
-/// * `udp_fragment` — lets large UDP/QUIC datagrams fragment instead of being
-///   silently dropped on small-MTU paths, which otherwise surfaces as a stalled
-///   or failing connection.
-fn apply_transport_tuning(proxy: &mut Value) {
-    let Some(obj) = proxy.as_object_mut() else { return };
-    if !obj.contains_key("tcp_fast_open") {
-        obj.insert("tcp_fast_open".into(), json!(true));
-    }
-    if !obj.contains_key("udp_fragment") {
-        obj.insert("udp_fragment".into(), json!(true));
-    }
 }
 
 fn build_dns(bypass_ru: bool) -> Value {
@@ -180,15 +159,13 @@ fn remote_rule_set(tag: &str, url: &str) -> Value {
         "tag": tag,
         "format": "binary",
         "url": url,
-        // Fetch geo rule-sets *through the tunnel*, not direct. In RU,
-        // raw.githubusercontent.com is routinely throttled/blocked, so a direct
-        // fetch fails and the RU rule-sets never load — RU domains then fall
-        // through to the proxy, so the site sees a foreign exit IP ("обнаружен
-        // VPN"), errors out, or is unreachable. The proxy is already up by the
-        // time rule-sets are fetched, so routing the download through it is the
-        // reliable path. Results are persisted (experimental.cache_file), so the
-        // download only happens on first connect / every 72h.
-        "download_detour": PROXY_TAG,
+        // download_detour MUST stay "direct". Routing through PROXY_TAG creates a
+        // start-up dependency cycle on a fresh install (no cached rule-sets): the
+        // router needs the rule-sets to initialize, but they download through the
+        // proxy, which isn't up until the router starts → the core fails to start.
+        // Direct download breaks the cycle. (Trade-off: where GitHub is blocked the
+        // RU rule-sets may load late.)
+        "download_detour": "direct",
         "update_interval": "72h"
     })
 }
