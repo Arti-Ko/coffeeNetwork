@@ -520,9 +520,9 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | `geosite-category-ru` + `geoip-ru` | Direct (если RU-BYPASS вкл) |
 | Всё остальное | Proxy |
 
-**DNS без утечек:**
-- РФ-домены → `local-ru` (77.88.8.8) напрямую — чтобы Яндекс/VK CDN работали корректно
-- Всё остальное → DoH через прокси
+**DNS:**
+- РФ-домены → `local-ru` (77.88.8.8 UDP напрямую) — чтобы Яндекс/VK CDN работали корректно
+- Всё остальное → UDP DNS через прокси (1.1.1.1 через тоннель). DoH не используется — тоннель уже шифрует трафик, DoH добавлял лишний TLS handshake и вызывал 10-18 сек задержку DNS на мобильном
 
 **Критичные параметры:**
 - `strategy: "ipv4_only"` — без этого AAAA-записи ломают соединение если прокси не умеет IPv6
@@ -566,6 +566,7 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | **0.2.4** | **2026-07-01** | **`fix: hotfix — WiFi снова работает (bandwidth limit применялся на WiFi — сломал BBR)`** |
 | **0.2.5** | **2026-07-01** | **`feat: кнопка LOG UI (в 0.2.5 лог пустой — см. 0.2.6)`** |
 | **0.2.6** | **2026-07-01** | **`fix: реальный лог sing-box через output-файл + bandwidth 25→10 Mbps на cellular`** |
+| **0.2.7** | **2026-07-01** | **`fix: DNS DoH → UDP через тоннель — устранена задержка 10-18 сек на мобильном интернете`** |
 
 **Детали 0.2.3 (Android):**
 
@@ -733,6 +734,9 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 - [x] **Android**: реальный лог через `"output"` в sing-box config + `getLog` читает файл
 - [x] **Android**: bandwidth на cellular снижен 25 → 10 Mbps
 
+### Выполнено (0.2.7)
+- [x] **Android**: DNS переключён с DoH (`type: https`) на UDP (`type: udp`) для обоих серверов (`remote` через proxy, `local-ru` напрямую)
+
 ### Pending
 - [ ] **Android**: рассмотреть отображение типа сети (WiFi/Mobile) в UI на Ticket-странице
 - [ ] **Проблема 1 (NAT keepalive)**: если 3X-UI → сервер-side fix (keepalive в настройках Hysteria2 inbound). Если сервер sing-box → реализовать `?mux=1` URL-параметр, добавляющий `multiplex.heartbeat: "15s"` в конфиг.
@@ -743,4 +747,13 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 
 ---
 
-*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.6)*
+**Детали 0.2.7 (Android) — фикс DNS на мобильном:**
+
+- **Симптом:** VPN подключается, но интернет не работает на 4G/5G. В логе — строки `outbound/hysteria2[proxy]: outbound connection to 1.1.1.1:443` с задержкой 10-18 секунд.
+- **Причина:** DNS использовал DoH (`type: https`, server: 1.1.1.1:443). Каждый DNS-запрос требовал TLS handshake (3+ RTT) поверх уже существующего QUIC-тоннеля. На мобильном + fixed-bandwidth (без BBR) — суммарно 10-18 сек на каждый DNS-запрос. Поскольку каждый новый домен требует DNS до загрузки, всё выглядело как "интернет не работает".
+- **Исправление:** `remote` и `local-ru` DNS переключены на `type: udp`. UDP DNS — 1 RTT, без TLS. Тоннель сам шифрует трафик, дополнительный TLS не нужен.
+- **Где:** `SingBoxConfig.kt:238-239`
+
+---
+
+*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.7)*
