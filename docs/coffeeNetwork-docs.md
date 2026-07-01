@@ -40,7 +40,7 @@
 
 | Репозиторий | Платформа | Технология | Версия |
 |---|---|---|---|
-| `coffeeNetwork` | macOS / Windows / Linux | Tauri 2 + Rust + Vanilla TS | 0.2.3 |
+| `coffeeNetwork` | macOS / Windows / Linux | Tauri 2 + Rust + Vanilla TS | 0.2.5 |
 | `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.5 |
 | `NetForge` *(отдельный репо)* | CLI / VPS | — | — |
 
@@ -549,6 +549,7 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | 0.2.1 | — | Bump версии |
 | 0.2.2 | — | `fix: откат download_detour на direct (мог ломать старт ядра)` |
 | **0.2.3** | **2026-07-01** | `docs: добавлена папка docs/ с живой документацией; синхронизация версий с Android` |
+| **0.2.5** | **2026-07-01** | `chore: синхронизация версии с Android (docs: LOG и bandwidth уже были в Desktop)` |
 
 ### Android (coffeeNetwork-android)
 
@@ -720,11 +721,13 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 - [x] **Android**: кнопка LOG — реальный лог sing-box ядра (кольцевой буфер 500 строк, `SelectableText`, `DraggableScrollableSheet`)
 
 ### Pending
-- [ ] **Desktop**: добавить LOG-окно с выводом `core.log` в UI
-- [ ] **Desktop**: NetworkCallback / авто-определение типа сети отсутствует (менее актуально: десктоп всегда на WiFi/Ethernet)
 - [ ] **Android**: рассмотреть отображение типа сети (WiFi/Mobile) в UI на Ticket-странице
 - [ ] **Проблема 1 (NAT keepalive)**: если 3X-UI → сервер-side fix (keepalive в настройках Hysteria2 inbound). Если сервер sing-box → реализовать `?mux=1` URL-параметр, добавляющий `multiplex.heartbeat: "15s"` в конфиг.
 
+### Что уже есть на Desktop (не нужно делать)
+- **LOG**: `get_log()` читает `core.log` (stdout/stderr sing-box), `logToggle` кнопка показывает/скрывает `<pre id="logView">` с авто-обновлением каждые 1.5с и авто-скроллом вниз — **полностью функционально**.
+- **Bandwidth**: `singbox.rs` никогда не добавлял авто-defaults для `up_mbps`/`down_mbps`. `parser.rs` читает их только из URL ссылки. Баг 0.2.3 (Android) на Desktop не воспроизводился.
+
 ---
 
-*Документ обновлён: 2026-07-01 (v0.2.5)*
+*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.5)*
