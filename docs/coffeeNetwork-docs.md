@@ -41,7 +41,7 @@
 | Репозиторий | Платформа | Технология | Версия |
 |---|---|---|---|
 | `coffeeNetwork` | macOS / Windows / Linux | Tauri 2 + Rust + Vanilla TS | 0.2.5 |
-| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.5 |
+| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.6 |
 | `NetForge` *(отдельный репо)* | CLI / VPS | — | — |
 
 > Версии синхронизированы начиная с 0.2.3, после этого Android может двигаться быстрее Desktop при hotfix-релизах.
@@ -367,7 +367,7 @@ MainActivity.kt
     ├── "status" → CoffeeVpnService.running + lastError + clash_api status
     ├── "traffic" → clash_api :19099/connections
     ├── "parse" → SingBoxConfig.parseLink(link)
-    ├── "getLog" → CoffeeVpnService.getLog() (кольцевой буфер 500 строк)
+    ├── "getLog" → читает filesDir/sing-box.log (sing-box пишет туда через config "output")
     ├── "listApps" → PackageManager.getInstalledPackages()
     ├── "appVersion" → BuildConfig.VERSION_NAME
     └── "installUpdate" → DownloadManager + FileProvider
@@ -564,7 +564,8 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | 0.1.6 | — | `fix: вернуть ipv4_only + mtu 1400 (проверено через adb на устройстве)` |
 | **0.2.3** | **2026-07-01** | **`fix: Hysteria2 работает на 4G/5G + NetworkCallback + синхронизация версий`** |
 | **0.2.4** | **2026-07-01** | **`fix: hotfix — WiFi снова работает (bandwidth limit применялся на WiFi — сломал BBR)`** |
-| **0.2.5** | **2026-07-01** | **`feat: кнопка LOG показывает реальный лог sing-box ядра`** |
+| **0.2.5** | **2026-07-01** | **`feat: кнопка LOG UI (в 0.2.5 лог пустой — см. 0.2.6)`** |
+| **0.2.6** | **2026-07-01** | **`fix: реальный лог sing-box через output-файл + bandwidth 25→10 Mbps на cellular`** |
 
 **Детали 0.2.3 (Android):**
 
@@ -614,12 +615,18 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 - **Принцип:** `up_mbps`/`down_mbps` без явного задания → Hysteria2 использует BBR (auto-CWND). Явное задание → фиксированный bandwidth, который может конфликтовать с серверной конфигурацией.
 - **Исправление:** `if (proxy.optString("type") == "hysteria2" && isMobile)` — ограничение только при `isMobile == true`. WiFi всегда использует BBR.
 
-**Детали 0.2.5 (Android) — кнопка LOG:**
+**Детали 0.2.5 (Android) — кнопка LOG (исправлено в 0.2.6):**
 
-- **`CoffeeVpnService`:** добавлен `logBuffer: ArrayDeque<String>` (max 500 строк) в companion object с `synchronized` доступом. `writeDebugMessage()` теперь пишет и в `Log.d` и в буфер (`appendLog()`).
-- **`MainActivity`:** новый case `"getLog"` в MethodChannel — возвращает `CoffeeVpnService.getLog()` (строки через `\n`).
 - **`main.dart`:** `_showLog()` — `async`, вызывает `getLog`, показывает `DraggableScrollableSheet` (65%→95% экрана) с `SelectableText` в monospace — пользователь может выделить и скопировать строки лога.
-- **Буфер:** `ArrayDeque` с `removeFirst()` при переполнении. Синхронизация через `synchronized(logBuffer)` — `writeDebugMessage` вызывается из go-потока libbox.
+- **В 0.2.5 LOG был пустым** — `writeDebugMessage` из `CommandServerHandler` это протокол command-server, а не реальный лог sing-box. Кольцевой буфер не получал runtime-логов.
+
+**Детали 0.2.6 (Android) — реальный LOG + снижение bandwidth:**
+
+- **Причина пустого LOG:** sing-box runtime лог (ошибки подключения, negotiation) пишется в отдельный поток, не через `writeDebugMessage`. Единственный способ его захватить — указать `"output"` в секции `log` конфига.
+- **Исправление LOG:** `SingBoxConfig.build()` принимает `logPath: String = ""`. Если задан — добавляет `"output": logPath` + `"level": "info"` в лог конфиг. Все три точки вызова (`MainActivity.connect`, `CoffeeVpnService.reconnectWithNewType`, `MainActivity.getLog`) используют `filesDir.resolve("sing-box.log")`.
+- **`MainActivity.getLog`:** читает файл `filesDir/sing-box.log` напрямую через `logFile.readText()` (вместо ring buffer).
+- **Снижение bandwidth:** 25 Mbps → 10 Mbps на cellular. Более консервативный порог для агрессивных операторов.
+- **Уровень лога:** `"warn"` → `"info"` — теперь видны все попытки подключения и negotiation.
 
 ### Работа с документацией (этот документ)
 
@@ -698,7 +705,9 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 
 7. **Per-app reconnect:** при изменении списка ИГНОР пока VPN активен — автоматическое переподключение с задержкой 500ms.
 
-8. **Hysteria2 на мобильном:** без `up_mbps`/`down_mbps` оператор дропает UDP-поток. С 0.2.3 ставится 25/25 Mbps на мобильном (cellular), на WiFi — никаких ограничений (BBR auto). **Важно:** явный `up_mbps`/`down_mbps` выключает BBR и может сломать соединение с native hysteria2 сервером — не ставить на WiFi (это баг 0.2.3, исправлен в 0.2.4). Значение в URL ссылки `?up=N&down=N` имеет приоритет над авто-дефолтом.
+8. **Hysteria2 на мобильном:** без `up_mbps`/`down_mbps` оператор дропает UDP-поток. С 0.2.6 ставится 10/10 Mbps на cellular (снижено с 25 в 0.2.4 — 10 Mbps проходит через более агрессивные операторы). На WiFi — никаких ограничений (BBR auto). Значение в URL ссылки `?up=N&down=N` имеет приоритет.
+
+9. **LOG (sing-box):** `writeDebugMessage` из `CommandServerHandler` — это protobuf debug output command-server протокола, **не** runtime лог sing-box. Реальные ошибки подключения захватываются только через `"output"` в секции `log` конфига (исправлено в 0.2.6).
 
 9. **`networkTypeCallback` и двойная сеть (WiFi + Cellular):** если оба интерфейса активны одновременно, `currentlyOnCellular()` возвращает `false` (WiFi приоритетнее). Это корректно: если есть WiFi, именно он будет использоваться системой.
 
@@ -718,7 +727,11 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 - [x] **Android hotfix**: bandwidth cap только для cellular — на WiFi BBR (никаких `up_mbps`/`down_mbps` не добавляется)
 
 ### Выполнено (0.2.5)
-- [x] **Android**: кнопка LOG — реальный лог sing-box ядра (кольцевой буфер 500 строк, `SelectableText`, `DraggableScrollableSheet`)
+- [x] **Android**: кнопка LOG UI (`DraggableScrollableSheet`, `SelectableText` monospace)
+
+### Выполнено (0.2.6)
+- [x] **Android**: реальный лог через `"output"` в sing-box config + `getLog` читает файл
+- [x] **Android**: bandwidth на cellular снижен 25 → 10 Mbps
 
 ### Pending
 - [ ] **Android**: рассмотреть отображение типа сети (WiFi/Mobile) в UI на Ticket-странице
@@ -730,4 +743,4 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 
 ---
 
-*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.5)*
+*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.6)*
