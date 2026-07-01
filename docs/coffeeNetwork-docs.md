@@ -41,10 +41,10 @@
 | Репозиторий | Платформа | Технология | Версия |
 |---|---|---|---|
 | `coffeeNetwork` | macOS / Windows / Linux | Tauri 2 + Rust + Vanilla TS | 0.2.3 |
-| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.3 |
+| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.5 |
 | `NetForge` *(отдельный репо)* | CLI / VPS | — | — |
 
-> Начиная с 0.2.3 версии синхронизированы между Desktop и Android и двигаются вместе.
+> Версии синхронизированы начиная с 0.2.3, после этого Android может двигаться быстрее Desktop при hotfix-релизах.
 
 **Общая идея**: личный VPN-клиент на базе [sing-box](https://sing-box.sagernet.org/) с умным сплит-туннелингом — российские домены (`geosite-category-ru`) и IP (`geoip-ru`) идут напрямую, весь остальной трафик — через VPN. Одним тумблером RU-BYPASS.
 
@@ -367,6 +367,7 @@ MainActivity.kt
     ├── "status" → CoffeeVpnService.running + lastError + clash_api status
     ├── "traffic" → clash_api :19099/connections
     ├── "parse" → SingBoxConfig.parseLink(link)
+    ├── "getLog" → CoffeeVpnService.getLog() (кольцевой буфер 500 строк)
     ├── "listApps" → PackageManager.getInstalledPackages()
     ├── "appVersion" → BuildConfig.VERSION_NAME
     └── "installUpdate" → DownloadManager + FileProvider
@@ -405,6 +406,7 @@ CoffeeVpnService : VpnService, PlatformInterface, CommandServerHandler
 - Счётчик серверов + кнопка `+ ДОБАВИТЬ`
 - ListView серверов (протокол-бейдж, имя, адрес:порт, кнопка удаления)
 - Кнопки внизу: ИГНОР | LOG | НАСТР
+  - **LOG** — `DraggableScrollableSheet` с `SelectableText` (monospace 11px), загружает через `getLog` MethodChannel; последние 500 строк из sing-box ядра
 
 **Modal sheets:**
 - `_addSheet` — поле ввода ссылок + кнопка IMPORT
@@ -426,7 +428,7 @@ CoffeeVpnService : VpnService, PlatformInterface, CommandServerHandler
 4. После `running = true`: регистрируется `networkTypeCallback` (следит за WiFi↔Cellular переключениями)
 5. `libbox` вызывает `PlatformInterface.openTun()` для создания TUN-интерфейса
 
-**NetworkCallback (авто-переподключение при смене типа сети — добавлено в 0.1.7):**
+**NetworkCallback (авто-переподключение при смене типа сети — добавлено в 0.2.3):**
 - `networkTypeCallback` слушает все сетевые события через `ConnectivityManager.registerNetworkCallback`
 - При срабатывании вызывает `checkNetworkType()` → `currentlyOnCellular()` → сравнивает с `lastWasCellular`
 - Если тип сети поменялся (WiFi→Mobile или Mobile→WiFi): вызывает `reconnectWithNewType(isMobile)` в фоновом потоке
@@ -559,15 +561,18 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | — | — | `fix: VPN не запускался (откат download_detour на direct)` |
 | 0.1.5 | — | `fix: ядро падало через ~2 сек — откат конфига к рабочему оригиналу` |
 | 0.1.6 | — | `fix: вернуть ipv4_only + mtu 1400 (проверено через adb на устройстве)` |
-| **0.2.3** | **2026-07-01** | **`fix: Hysteria2 теперь работает на мобильном интернете + синхронизация версий`** |
+| **0.2.3** | **2026-07-01** | **`fix: Hysteria2 работает на 4G/5G + NetworkCallback + синхронизация версий`** |
+| **0.2.4** | **2026-07-01** | **`fix: hotfix — WiFi снова работает (bandwidth limit применялся на WiFi — сломал BBR)`** |
+| **0.2.5** | **2026-07-01** | **`feat: кнопка LOG показывает реальный лог sing-box ядра`** |
 
 **Детали 0.2.3 (Android):**
 
 **Проблема 2 — VPN не работал на мобильном интернете (исправлено):**
 - **Причина:** Hysteria2 использует BBR congestion control и агрессивно заполняет буфер. Неограниченный UDP-поток срабатывает DPI/rate-limiter оператора — сессия дропается. На 4G/5G операторы применяют более агрессивный rate limiting, чем на WiFi.
-- **Решение:** `SingBoxConfig.build()` теперь принимает `isMobile: Boolean`. Для Hysteria2 автоматически ставит `up_mbps: 25, down_mbps: 25` на мобильном (ниже порога операторского rate-limiter), `100/100` на WiFi. Значения в URL ссылки (`?up=N&down=N`) имеют приоритет над дефолтами.
+- **Решение:** `SingBoxConfig.build()` принимает `isMobile: Boolean`. Для Hysteria2 ставит `up_mbps: 25, down_mbps: 25` на мобильном (ниже порога операторского rate-limiter). Значения в URL (`?up=N&down=N`) имеют приоритет над авто-дефолтами.
+- **Баг 0.2.3:** также применял `up_mbps: 100, down_mbps: 100` на WiFi — это переключало Hysteria2 из BBR-режима в fixed-bandwidth режим и ломало соединение с native hysteria2 серверами (3X-UI). Исправлено в 0.2.4.
 - **Дополнительно:** `parseHysteria2()` теперь парсит `up`/`down` query params из URL (ранее игнорировались, в отличие от desktop `parser.rs`).
-- **Где:** `SingBoxConfig.kt:221` — `build()`, `SingBoxConfig.kt:75-76` — `parseHysteria2()`
+- **Где:** `SingBoxConfig.kt:224` — `build()`, `SingBoxConfig.kt:75-76` — `parseHysteria2()`
 - **Обнаружение типа сети:** `MainActivity.isCellular()` обходит все физические сети через `ConnectivityManager.allNetworks`, пропускает VPN-интерфейсы и интерфейсы без INTERNET capability. Если есть WiFi — возвращает `false` (WiFi приоритетнее, даже если Cellular тоже активен).
 
 **Авто-адаптация при смене типа сети (WiFi ↔ Mobile):**
@@ -602,21 +607,18 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 
 ---
 
-**Текст описания для GitHub Release (0.2.3, Android):**
+**Детали 0.2.4 (Android) — hotfix:**
 
-```
-Теперь VPN работает на мобильном интернете
+- **Причина бага 0.2.3:** `SingBoxConfig.build()` добавлял `up_mbps: 100, down_mbps: 100` на WiFi. Явно заданный bandwidth выключает BBR и переключает Hysteria2 в fixed-bandwidth режим. Native hysteria2 сервер (3X-UI) теряет соединение — конфигурация серверного side рассчитана на BBR.
+- **Принцип:** `up_mbps`/`down_mbps` без явного задания → Hysteria2 использует BBR (auto-CWND). Явное задание → фиксированный bandwidth, который может конфликтовать с серверной конфигурацией.
+- **Исправление:** `if (proxy.optString("type") == "hysteria2" && isMobile)` — ограничение только при `isMobile == true`. WiFi всегда использует BBR.
 
-Раньше Hysteria2 мог не работать через 4G/5G — оператор видел слишком
-агрессивный UDP-трафик и дропал соединение. Теперь скорость автоматически
-ограничивается до безопасного уровня на мобильных сетях, а при переключении
-с Wi-Fi на мобильный интернет (и обратно) всё подстраивается само.
+**Детали 0.2.5 (Android) — кнопка LOG:**
 
-• Исправлен сбой подключения на 4G/5G
-• Автоматическая адаптация при переключении Wi-Fi ↔ мобильный интернет
-• Скорость на Wi-Fi не ограничивается
-• Версии Desktop и Android теперь синхронизированы (0.2.3)
-```
+- **`CoffeeVpnService`:** добавлен `logBuffer: ArrayDeque<String>` (max 500 строк) в companion object с `synchronized` доступом. `writeDebugMessage()` теперь пишет и в `Log.d` и в буфер (`appendLog()`).
+- **`MainActivity`:** новый case `"getLog"` в MethodChannel — возвращает `CoffeeVpnService.getLog()` (строки через `\n`).
+- **`main.dart`:** `_showLog()` — `async`, вызывает `getLog`, показывает `DraggableScrollableSheet` (65%→95% экрана) с `SelectableText` в monospace — пользователь может выделить и скопировать строки лога.
+- **Буфер:** `ArrayDeque` с `removeFirst()` при переполнении. Синхронизация через `synchronized(logBuffer)` — `writeDebugMessage` вызывается из go-потока libbox.
 
 ### Работа с документацией (этот документ)
 
@@ -695,7 +697,7 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 
 7. **Per-app reconnect:** при изменении списка ИГНОР пока VPN активен — автоматическое переподключение с задержкой 500ms.
 
-8. **Hysteria2 на мобильном:** без `up_mbps`/`down_mbps` оператор дропает UDP-поток. С 0.1.7 ставится 25/25 Mbps на мобильном. Если VPN всё равно нестабилен на конкретном операторе — попробовать снизить до 10-15 Mbps. Значение в URL ссылки переопределяет авто-дефолт.
+8. **Hysteria2 на мобильном:** без `up_mbps`/`down_mbps` оператор дропает UDP-поток. С 0.2.3 ставится 25/25 Mbps на мобильном (cellular), на WiFi — никаких ограничений (BBR auto). **Важно:** явный `up_mbps`/`down_mbps` выключает BBR и может сломать соединение с native hysteria2 сервером — не ставить на WiFi (это баг 0.2.3, исправлен в 0.2.4). Значение в URL ссылки `?up=N&down=N` имеет приоритет над авто-дефолтом.
 
 9. **`networkTypeCallback` и двойная сеть (WiFi + Cellular):** если оба интерфейса активны одновременно, `currentlyOnCellular()` возвращает `false` (WiFi приоритетнее). Это корректно: если есть WiFi, именно он будет использоваться системой.
 
@@ -711,12 +713,18 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 - [x] **Docs**: технический анализ проблем 1 и 2, результаты исследования libbox.so
 - [x] **Синхронизация версий**: Desktop 0.2.3 + Android 0.2.3
 
+### Выполнено (0.2.4)
+- [x] **Android hotfix**: bandwidth cap только для cellular — на WiFi BBR (никаких `up_mbps`/`down_mbps` не добавляется)
+
+### Выполнено (0.2.5)
+- [x] **Android**: кнопка LOG — реальный лог sing-box ядра (кольцевой буфер 500 строк, `SelectableText`, `DraggableScrollableSheet`)
+
 ### Pending
-- [ ] **Desktop**: добавить опциональные `up_mbps`/`down_mbps` в `Settings` (`store.rs`) и применять для Hysteria2 в `singbox.rs`. Меньший приоритет — на десктопе проблема реже.
-- [ ] **Desktop**: отобразить настройку bandwidth в UI (`main.ts`)
+- [ ] **Desktop**: добавить LOG-окно с выводом `core.log` в UI
+- [ ] **Desktop**: NetworkCallback / авто-определение типа сети отсутствует (менее актуально: десктоп всегда на WiFi/Ethernet)
 - [ ] **Android**: рассмотреть отображение типа сети (WiFi/Mobile) в UI на Ticket-странице
 - [ ] **Проблема 1 (NAT keepalive)**: если 3X-UI → сервер-side fix (keepalive в настройках Hysteria2 inbound). Если сервер sing-box → реализовать `?mux=1` URL-параметр, добавляющий `multiplex.heartbeat: "15s"` в конфиг.
 
 ---
 
-*Документ обновлён: 2026-07-01*
+*Документ обновлён: 2026-07-01 (v0.2.5)*
