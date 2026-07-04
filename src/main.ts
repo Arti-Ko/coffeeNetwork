@@ -2,6 +2,35 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 // ---------------------------------------------------------------------------
+// bundle helpers — coffee://bundle?w=<base64url(wifi)>&m=<base64url(mobile)>
+// ---------------------------------------------------------------------------
+function parseBundle(link: string): { wifi: string; mobile?: string } | null {
+  if (!link.startsWith("coffee://bundle")) return null;
+  try {
+    const query = link.split("?")[1] ?? "";
+    const params = new URLSearchParams(query);
+    const w = params.get("w");
+    const m = params.get("m");
+    if (!w) return null;
+    const decode = (s: string) =>
+      decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
+    return { wifi: decode(w), mobile: m ? decode(m) : undefined };
+  } catch {
+    return null;
+  }
+}
+
+function generateBundle(wifi: string, mobile?: string): string {
+  const encode = (s: string) =>
+    btoa(unescape(encodeURIComponent(s)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+  const q = `w=${encode(wifi)}${mobile ? `&m=${encode(mobile)}` : ""}`;
+  return `coffee://bundle?${q}`;
+}
+
+// ---------------------------------------------------------------------------
 // types (mirror the Rust structs)
 // ---------------------------------------------------------------------------
 type Mode = "system_proxy" | "tun";
@@ -256,12 +285,17 @@ function renderServers() {
         <div class="srv__addr">${esc(s.address)}:${s.port}</div>
       </div>
       <div class="srv__actions">
+        <button class="icon-btn bundle" title="Bundle (WiFi+Mobile)">⊕</button>
         <button class="icon-btn rename" title="Переименовать">✎</button>
         <button class="icon-btn del" title="Удалить">✕</button>
       </div>`;
 
     li.addEventListener("click", (e) => {
       const t = e.target as HTMLElement;
+      if (t.classList.contains("bundle")) {
+        openBundleModal(s);
+        return;
+      }
       if (t.classList.contains("rename")) {
         startRename(li, s);
         return;
@@ -441,8 +475,19 @@ async function importLinks() {
   msg.className = "import__msg mono";
   msg.textContent = "PARSING…";
   try {
+    // Expand any coffee://bundle lines into their component links
+    const expanded = text
+      .split("\n")
+      .flatMap((line) => {
+        const trimmed = line.trim();
+        const bundle = parseBundle(trimmed);
+        if (!bundle) return [trimmed];
+        return bundle.mobile ? [bundle.wifi, bundle.mobile] : [bundle.wifi];
+      })
+      .filter(Boolean)
+      .join("\n");
     const before = servers.length;
-    servers = await invoke<Server[]>("add_links", { text });
+    servers = await invoke<Server[]>("add_links", { text: expanded });
     const added = servers.length - before;
     msg.className = "import__msg mono ok";
     msg.textContent = `+${added} ADDED`;
@@ -496,6 +541,37 @@ function startRename(li: HTMLElement, s: Server) {
   input.addEventListener("mousedown", (e) => e.stopPropagation());
 }
 
+// ---------------------------------------------------------------------------
+// bundle modal — generate coffee://bundle for a server
+// ---------------------------------------------------------------------------
+function openBundleModal(wifiServer: Server) {
+  const wifiInput = $("bundleWifi") as HTMLInputElement;
+  const mobileInput = $("bundleMobile") as HTMLInputElement;
+  const output = $("bundleOutput");
+  const modal = $("bundleModal");
+
+  wifiInput.value = wifiServer.raw;
+  mobileInput.value = "";
+  output.textContent = "";
+
+  modal.hidden = false;
+
+  const generate = () => {
+    const wifi = wifiInput.value.trim();
+    const mobile = mobileInput.value.trim() || undefined;
+    if (!wifi) {
+      output.textContent = "WiFi link is required";
+      return;
+    }
+    output.textContent = generateBundle(wifi, mobile);
+  };
+
+  // Re-generate on every keystroke
+  wifiInput.oninput = generate;
+  mobileInput.oninput = generate;
+  generate();
+}
+
 async function deleteServer(s: Server) {
   if (!window.confirm(`Удалить «${s.name}»?`)) return;
   servers = await invoke<Server[]>("delete_server", { id: s.id });
@@ -542,6 +618,30 @@ async function toggleConfig() {
       view.textContent = String(e);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// bundle modal wiring
+// ---------------------------------------------------------------------------
+function bindBundleModal() {
+  $("bundleCopyBtn").addEventListener("click", () => {
+    const text = $("bundleOutput").textContent ?? "";
+    if (!text) return;
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    });
+    toast("Bundle скопирован");
+  });
+  document.querySelectorAll<HTMLElement>("[data-close-bundle]").forEach((el) =>
+    el.addEventListener("click", () => {
+      $("bundleModal").hidden = true;
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -897,6 +997,7 @@ bind();
 bindUpdateModal();
 bindSettings();
 bindExclusions();
+bindBundleModal();
 refresh();
 
 invoke<string>("app_version")

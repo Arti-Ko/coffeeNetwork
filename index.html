@@ -136,6 +136,38 @@
 
     <div id="toast" class="toast mono" hidden></div>
 
+    <!-- ===================== BUNDLE MODAL ===================== -->
+    <div id="bundleModal" class="modal" hidden>
+      <div class="modal__backdrop" data-close-bundle></div>
+      <div class="modal__card glass" role="dialog" aria-labelledby="bundleTitle" aria-modal="true">
+        <span class="cross cross--tl"></span>
+        <span class="cross cross--br"></span>
+        <button class="modal__x" data-close-bundle aria-label="Закрыть">✕</button>
+        <div class="modal__badge mono">BUNDLE · DUAL LINK</div>
+        <h3 class="modal__title" id="bundleTitle">coffee://bundle</h3>
+        <div class="modal__sub mono">WiFi ссылка → обязательна; Mobile → опционально</div>
+
+        <div class="set" style="margin-top:16px">
+          <div class="set__label mono">WIFI LINK</div>
+          <input id="bundleWifi" class="excl-search mono" spellcheck="false" placeholder="vless://… или hysteria2://…" style="margin-top:6px" />
+        </div>
+        <div class="set" style="margin-top:12px">
+          <div class="set__label mono">MOBILE LINK (опц.)</div>
+          <input id="bundleMobile" class="excl-search mono" spellcheck="false" placeholder="vless://… другой сервер для мобильных" style="margin-top:6px" />
+        </div>
+
+        <div class="set" style="margin-top:16px">
+          <div class="set__label mono">РЕЗУЛЬТАТ</div>
+          <div id="bundleOutput" class="bundle-output mono"></div>
+        </div>
+
+        <div class="modal__actions" style="margin-top:12px">
+          <button id="bundleCopyBtn" class="btn-solid mono">Копировать</button>
+          <button class="btn-ghost mono" data-close-bundle>Закрыть</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ===================== UPDATE DIALOG ===================== -->
     <div id="updateModal" class="modal" hidden>
       <div class="modal__backdrop"></div>

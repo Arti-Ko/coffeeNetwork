@@ -1232,3 +1232,19 @@ body {
   background: var(--lift-2);
   border: 1px solid var(--hair);
 }
+
+/* bundle modal output */
+.bundle-output {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--lift-1, oklch(18% 0.01 60));
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  color: var(--accent);
+  word-break: break-all;
+  min-height: 36px;
+  user-select: text;
+  -webkit-user-select: text;
+  line-height: 1.6;
+}
