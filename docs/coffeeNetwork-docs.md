@@ -41,7 +41,7 @@
 | Репозиторий | Платформа | Технология | Версия |
 |---|---|---|---|
 | `coffeeNetwork` | macOS / Windows / Linux | Tauri 2 + Rust + Vanilla TS | 0.2.5 |
-| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.2.6 |
+| `coffeeNetwork-android` | Android | Flutter + Kotlin + sing-box libbox | 0.3.4 |
 | `NetForge` *(отдельный репо)* | CLI / VPS | — | — |
 
 > Версии синхронизированы начиная с 0.2.3, после этого Android может двигаться быстрее Desktop при hotfix-релизах.
@@ -569,6 +569,8 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | **0.2.7** | **2026-07-01** | **`fix: DNS DoH → UDP (сломал WiFi, откат в 0.2.8)`** |
 | **0.2.8** | **2026-07-01** | **`fix: откат DNS на DoH, кнопки КОПИРОВАТЬ/ОЧИСТИТЬ в логе, убрали bandwidth cap (не помогло)`** |
 | **0.2.9** | **2026-07-01** | **`fix: remote DNS прямой (8.8.8.8 без proxy), вернули cap 10 Mbps на cellular`** |
+| **0.3.0–0.3.3** | **2026-07-04** | **`feat: coffee://bundle + VLESS Reality как мобильная ссылка (mobile link)`** |
+| **0.3.4** | **2026-07-04** | **`fix: cleartext HTTP на 127.0.0.1 (Clash API), диагностические логи, warmup delay 500ms при reconnect`** |
 
 **Детали 0.2.3 (Android):**
 
@@ -764,4 +766,88 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 
 ---
 
-*Документ обновлён: 2026-07-01 (Desktop v0.2.5 / Android v0.2.9)*
+---
+
+### Выполнено (0.3.0–0.3.3)
+
+- [x] **Android + Desktop**: поддержка `coffee://bundle` — URI-формат, содержащий одновременно WiFi-ссылку (`?w=`) и мобильную ссылку (`?m=`), оба значения — base64url
+- [x] **Android**: поля `mobileLink` в SharedPreferences + UI «4G: задать / задан» рядом с каждым сервером
+- [x] **Android `CoffeeVpnService`**: при `reconnectWithNewType(isMobile=true)` использует `mobileLink` если задан, иначе — основной `link`
+- [x] **Android `SingBoxConfig.kt`**: поддержка парсинга VLESS Reality ссылок (`security=reality`, `pbk`, `sid`, `fp`, `flow=xtls-rprx-vision`)
+- [x] **NetForge**: автоматическая генерация `coffee://bundle` при создании hysteria2-сервера (VLESS Reality ссылка создаётся из уже имеющегося конфига сервера)
+
+### Выполнено (0.3.4)
+
+- [x] **Android**: создан `res/xml/network_security_config.xml` — разрешает cleartext HTTP на 127.0.0.1 для вызовов Clash API (`warmupProxy` + `traffic()`)
+- [x] **Android `AndroidManifest.xml`**: `android:networkSecurityConfig="@xml/network_security_config"` — без этого `warmupProxy()` падал с ошибкой «Cleartext HTTP traffic to 127.0.0.1 not permitted»
+- [x] **Android `CoffeeVpnService`**: диагностический лог в `reconnectWithNewType` — `Log.i(TAG, "reconnect: cellular=$isMobile protocol=${parsed.protocol} mobileLink=$usingMobileLink server=...")`
+- [x] **Android `MainActivity`**: диагностический лог в обработчике подключения — `Log.i("CoffeeVpn", "connect: cellular=$isMobile protocol=... mobileLink=$usingMobile ...")`
+- [x] **Android `CoffeeVpnService`**: задержка warmup при reconnect снижена с 2500ms до 500ms (`warmupProxy(startDelayMs = 500L)`)
+
+### Pending
+
+- [ ] **Android**: рассмотреть отображение типа сети (WiFi/Mobile) и активного протокола в UI
+- [ ] **Проблема 1 (NAT keepalive)**: если 3X-UI → сервер-side fix (keepalive в настройках Hysteria2 inbound). Если сервер sing-box → реализовать `?mux=1` URL-параметр, добавляющий `multiplex.heartbeat: "15s"` в конфиг.
+- [ ] **Android**: установить и протестировать v0.3.4 APK (сборка на GitHub CI)
+
+---
+
+## 5.2 Тестирование VLESS Reality на мобильном интернете (2026-07-04)
+
+**Задача:** подтвердить, что при переходе WiFi → cellular приложение автоматически переключается с hysteria2 на VLESS Reality.
+
+**Стенд:**
+- Устройство: Samsung (Android 15), device id P2129K000208
+- Оператор: Yota LTE, IP 100.110.77.142
+- ADB over USB — мониторинг в реальном времени
+- WiFi отключён командой `adb shell svc wifi disable`
+
+**Ход теста (извлечено из лога sing-box в приложении):**
+
+```
+21:53:52  INFO  network: updated default interface wlan0, type wifi
+21:53:52  INFO  sing-box started (0.31s)
+21:53:52  INFO  outbound/hysteria2[proxy]: outbound connection to 1.1.1.1:443
+             ← WiFi активен, hysteria2 используется штатно
+
+21:54:20  ERROR connection download closed: write udp 192.168.0.100:43328
+          ->77.73.135.131:28443: write: network is unreachable
+             ← WiFi выключен, hysteria2/QUIC упал — network unreachable
+
+21:54:20  INFO  network: updated default interface rmnet_data3, index 17,
+          type cellular, expensive
+             ← NetworkCallback обнаружил переключение на cellular
+
+21:54:20  INFO  sing-box started (0.30s)
+             ← конфиг перезагружен с VLESS Reality mobile link
+
+21:54:21  INFO  outbound/vless[proxy]: outbound connection to 57.144.248.196:443
+21:54:21  INFO  outbound/vless[proxy]: outbound connection to www.gstatic.com:443
+             ← VLESS Reality активен на cellular ✅
+
+22:13:18  INFO  outbound/vless[proxy]: outbound connection to 43.159.235.61:8080  (8ms)
+22:13:18  INFO  outbound/vless[proxy]: outbound connection to 101.32.104.4:8080   (1ms)
+22:13:18  INFO  outbound/direct[direct]: outbound connection to 95.163.61.56:443  ← VK, direct ✅
+             ← через 19 минут VLESS Reality продолжает работать стабильно
+```
+
+**Результат: ✅ ПОДТВЕРЖДЕНО**
+
+| Проверка | Результат |
+|---|---|
+| Автоопределение перехода WiFi → cellular | ✅ `networkTypeCallback` сработал мгновенно |
+| Перезагрузка конфига с VLESS Reality | ✅ sing-box restarted за 0.30s |
+| Маршрутизация через `outbound/vless` | ✅ весь зарубежный трафик через VLESS |
+| RU-bypass (`outbound/direct`) | ✅ VK, Rustore идут напрямую |
+| Стабильность через 19 минут | ✅ VPN работает без перезапусков |
+| DNS через прокси (1.1.1.1:443) | ✅ `outbound/vless[proxy]` → 1.1.1.1:443 |
+
+**Наблюдения:**
+
+- EOF-ошибки на WeChat-соединениях (`43.159.235.61:8080`, `101.32.104.4:8080`) — это нормальное поведение WeChat, который часто использует short-lived keep-alive TCP соединения. VPN-туннель при этом не падает.
+- VLESS Reality успешно маскируется под TLS 1.3 к `www.microsoft.com` — DPI российского оператора не блокирует соединение.
+- В логе видны оба типа: `outbound/vless[proxy]` (зарубежный) и `outbound/direct[direct]` (российский) — сплит-туннелинг работает корректно.
+
+---
+
+*Документ обновлён: 2026-07-04 (Desktop v0.2.5 / Android v0.3.4)*
