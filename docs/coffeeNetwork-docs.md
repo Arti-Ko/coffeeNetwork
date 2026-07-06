@@ -571,6 +571,7 @@ APK: `build/app/outputs/flutter-apk/app-release.apk`
 | **0.2.9** | **2026-07-01** | **`fix: remote DNS прямой (8.8.8.8 без proxy), вернули cap 10 Mbps на cellular`** |
 | **0.3.0–0.3.3** | **2026-07-04** | **`feat: coffee://bundle + VLESS Reality как мобильная ссылка (mobile link)`** |
 | **0.3.4** | **2026-07-04** | **`fix: cleartext HTTP на 127.0.0.1 (Clash API), диагностические логи, warmup delay 500ms при reconnect`** |
+| **0.3.7** | **2026-07-06** | **`fix: серверная REALITY-цель www.microsoft.com→www.apple.com (PQ-TLS сломал REALITY); parse_link чистит ВСЕ пробелы; Android uTLS всегда on`** — см. раздел 5.3 |
 
 **Детали 0.2.3 (Android):**
 
@@ -845,9 +846,56 @@ json:"multiplex,omitempty"       ← есть, но требует server mux su
 **Наблюдения:**
 
 - EOF-ошибки на WeChat-соединениях (`43.159.235.61:8080`, `101.32.104.4:8080`) — это нормальное поведение WeChat, который часто использует short-lived keep-alive TCP соединения. VPN-туннель при этом не падает.
-- VLESS Reality успешно маскируется под TLS 1.3 к `www.microsoft.com` — DPI российского оператора не блокирует соединение.
+- ⚠️ **УСТАРЕЛО (2026-07-06):** на 2026-07-04 REALITY маскировался под `www.microsoft.com`, но позже эта цель **перестала работать** — см. раздел 5.3. Актуальная цель — `www.apple.com`.
 - В логе видны оба типа: `outbound/vless[proxy]` (зарубежный) и `outbound/direct[direct]` (российский) — сплит-туннелинг работает корректно.
 
 ---
 
-*Документ обновлён: 2026-07-04 (Desktop v0.2.5 / Android v0.3.4)*
+## 5.3 Сломался VLESS: REALITY-цель www.microsoft.com (2026-07-06)
+
+**Симптом:** VPN «подключается, но интернета нет» на всех клиентах (android/desktop);
+в приложении `warmup HTTP 503`; на сервере в логе xray —
+`REALITY: processed invalid connection … server name mismatch: www` /
+`handshake did not complete successfully`.
+
+**Корневая причина (не клиент, а сервер):** `www.microsoft.com` включил
+**постквантовый TLS (X25519MLKEM768)**. REALITY проксирует TLS-хендшейк к
+«цели» (`dest`/`serverNames`) и «крадёт» его — с PQ-ключами эта кража не
+завершается, поэтому REALITY-инбаунд отвергает всех клиентов (и sing-box, и
+даже сам xray).
+
+**Как доказано (loopback xray↔xray на сервере, одинаковые свежие ключи):**
+
+| REALITY-цель | Результат |
+|---|---|
+| `www.microsoft.com` | ❌ `handshake did not complete` |
+| `www.apple.com` / `gateway.icloud.com` / `www.lovelive-anime.jp` | ✅ HTTP 200 |
+
+Прямой `curl` с сервера в интернет и `freedom`-egress при этом работали —
+проблема строго в REALITY-хендшейке к PQ-цели.
+
+**Фикс (сервер, x-ui):** в `/etc/x-ui/x-ui.db` у REALITY-инбаундов 443 и 2087
+`serverNames`+`dest` изменены `www.microsoft.com`→`www.apple.com` (8443 уже был
+apple), затем `x-ui restart`. Бэкап БД: `/etc/x-ui/x-ui.db.bak-*`. Проверено
+end-to-end с телефона (WiFi): exit IP = IP сервера на портах 443 и 8443.
+
+**Важно про ссылки:** SNI зашит и в конфиг сервера, и в клиентскую ссылку —
+после смены цели **все ссылки надо перевыпустить** с `sni=www.apple.com`
+(старые с `sni=www.microsoft.com` мертвы). Проще всего — пересоздать через
+NetForge (он читает актуальный инбаунд из x-ui).
+
+**Если apple тоже «сломается»** (включит PQ или сменит TLS-поведение) — сменить
+цель на любой другой стабильный TLS 1.3 сайт без постквантового обмена и
+перевыпустить ссылки. Быстрая проверка кандидата — loopback xray↔xray с этой
+целью (успех = HTTP 200, провал = `handshake did not complete`).
+
+**Правки клиентов в этот заход:**
+- Android `SingBoxConfig.kt`: uTLS теперь **всегда** включён с `fp=chrome` по
+  умолчанию (без uTLS REALITY отвергает ClientHello) + вычистка всех пробелов из
+  ссылок (Gboard-автокоррекция вставляла `www. Apple. com`).
+- Desktop `parser.rs`: `parse_link` чистит **все** пробелы (не только края) —
+  паритет с мобилой; uTLS-always там уже было.
+
+---
+
+*Документ обновлён: 2026-07-06 (Desktop v0.3.7 / Android v0.3.7 / NetForge v0.1.4)*
