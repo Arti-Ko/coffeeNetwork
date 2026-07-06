@@ -31,7 +31,12 @@ pub struct Server {
 /// Parse a single share-link into a `Server`. `id` is left empty; the store
 /// assigns one on save.
 pub fn parse_link(link: &str) -> Result<Server, String> {
-    let link = link.trim();
+    // Strip ALL whitespace, not just the ends: a share-link never legitimately
+    // contains spaces (they must be %20-encoded), and pasted/synced links can
+    // carry stray spaces or newlines that silently corrupt the SNI/pbk — parity
+    // with the mobile client, where keyboard autocorrect injects them.
+    let cleaned: String = link.chars().filter(|c| !c.is_whitespace()).collect();
+    let link = cleaned.as_str();
     let scheme = link.split("://").next().unwrap_or("").to_lowercase();
 
     match scheme.as_str() {
