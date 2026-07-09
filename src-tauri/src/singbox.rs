@@ -23,6 +23,18 @@ pub enum Mode {
 
 const MIXED_PORT: u16 = 2080;
 
+// Extra RU domains forced DIRECT alongside geosite-category-ru. The geosite list
+// lags on big e-commerce CDNs (Wildberries/Ozon basket & static hosts), so those
+// leak through the proxy and get geo-blocked from a foreign exit. Keep in sync
+// with the Android client (SingBoxConfig.kt RU_DIRECT_SUFFIXES).
+const RU_DIRECT_SUFFIXES: &[&str] = &[
+    "wildberries.ru", "wb.ru", "wbbasket.ru", "wbstatic.net", "wbcontent.net",
+    "wildberries.by", "wildberries.kz",
+    "ozon.ru", "ozon.io", "ozon.travel", "ozonusercontent.com", "ozone.ru",
+    "megamarket.ru", "sbermegamarket.ru", "dns-shop.ru", "citilink.ru",
+    "mvideo.ru", "eldorado.ru", "aliexpress.ru", "lamoda.ru", "detmir.ru",
+];
+
 // SagerNet rule-set sources (binary .srs).
 const RS_GEOSITE_RU: &str =
     "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs";
@@ -133,6 +145,11 @@ fn build_route(bypass_ru: bool, excluded: &[String]) -> Value {
     ];
 
     if bypass_ru {
+        // Explicit RU e-commerce domains first (covers gaps in the geosite list).
+        rules.push(json!({
+            "domain_suffix": RU_DIRECT_SUFFIXES,
+            "outbound": "direct"
+        }));
         rules.push(json!({
             "rule_set": ["geosite-category-ru", "geoip-ru"],
             "outbound": "direct"

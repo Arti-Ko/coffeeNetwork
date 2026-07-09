@@ -290,12 +290,32 @@ fn elevate_run(bin: &PathBuf, cfg: &PathBuf, workdir: &PathBuf) -> Result<u32, S
     // `exec` so the backgrounded job *becomes* sing-box — `$!` is then the real
     // sing-box PID, so a later `kill` stops it instead of orphaning a root TUN
     // process behind a short-lived wrapper shell.
-    let script = format!(
-        "do shell script \"cd '{dir}' && exec '{bin}' run -c '{cfg}' >/dev/null 2>&1 & echo $!\" with administrator privileges",
+    let inner = format!(
+        "cd '{dir}' && exec '{bin}' run -c '{cfg}' >/dev/null 2>&1 & echo $!",
         dir = workdir.display(),
         bin = bin.display(),
         cfg = cfg.display(),
     );
+
+    // Password-free fast path: if the user installed a NOPASSWD sudoers rule
+    // (see README "passwordless TUN" / `scripts/install-sudoers.sh`), `sudo -n`
+    // starts the tunnel with no prompt. Any failure (no rule, wrong path) falls
+    // through to the osascript prompt below — so this can never regress.
+    if let Ok(out) = Command::new("/usr/bin/sudo")
+        .args(["-n", "/bin/sh", "-c", &inner])
+        .output()
+    {
+        if out.status.success() {
+            if let Ok(pid) = String::from_utf8_lossy(&out.stdout).trim().parse::<u32>() {
+                if pid > 0 {
+                    return Ok(pid);
+                }
+            }
+        }
+    }
+
+    // Fallback: one authenticated prompt via osascript (original behaviour).
+    let script = format!("do shell script \"{inner}\" with administrator privileges");
     let out = Command::new("/usr/bin/osascript")
         .arg("-e")
         .arg(&script)
@@ -403,12 +423,20 @@ fn probe_pid(_pid: u32) -> Liveness {
     Liveness::Unknown
 }
 
-/// macOS: kill the root sing-box via an elevated `osascript`.
+/// macOS: kill the root sing-box. Tries password-free `sudo -n` first (same
+/// NOPASSWD rule as start), falling back to an elevated `osascript` prompt.
 #[cfg(target_os = "macos")]
 fn kill_elevated(pid: u32) {
-    let script = format!(
-        "do shell script \"kill {pid} 2>/dev/null || kill -9 {pid}\" with administrator privileges"
-    );
+    let sh = format!("kill {pid} 2>/dev/null || kill -9 {pid}");
+    if let Ok(out) = Command::new("/usr/bin/sudo")
+        .args(["-n", "/bin/sh", "-c", &sh])
+        .output()
+    {
+        if out.status.success() {
+            return;
+        }
+    }
+    let script = format!("do shell script \"{sh}\" with administrator privileges");
     let _ = Command::new("/usr/bin/osascript").arg("-e").arg(&script).output();
 }
 
