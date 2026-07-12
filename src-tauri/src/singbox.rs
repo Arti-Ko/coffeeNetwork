@@ -28,6 +28,18 @@ const MIXED_PORT: u16 = 2080;
 // leak through the proxy and get geo-blocked from a foreign exit. Keep in sync
 // with the Android client (SingBoxConfig.kt RU_DIRECT_SUFFIXES).
 const RU_DIRECT_SUFFIXES: &[&str] = &[
+    // Yandex family
+    "yandex.ru", "ya.ru", "yandex.net", "yastatic.net", "yandex.com", "yandexcloud.net",
+    "yandex.by", "yandex.kz", "dzen.ru", "kinopoisk.ru", "zen.yandex.ru",
+    // VK / Mail.ru / OK
+    "vk.com", "vk.ru", "vkontakte.ru", "userapi.com", "vk-cdn.net", "vkuser.net", "vkuseraudio.net",
+    "mail.ru", "imgsmail.ru", "ok.ru", "odnoklassniki.ru",
+    // Banks / gov / services
+    "sberbank.ru", "sber.ru", "gosuslugi.ru", "nalog.ru", "nalog.gov.ru", "mos.ru",
+    "avito.ru", "avito.st", "2gis.ru", "2gis.com", "tinkoff.ru", "tbank.ru", "vtb.ru", "alfabank.ru",
+    // Telecom
+    "beeline.ru", "mts.ru", "megafon.ru", "tele2.ru", "rt.ru",
+    // E-commerce
     "wildberries.ru", "wb.ru", "wbbasket.ru", "wbstatic.net", "wbcontent.net",
     "wildberries.by", "wildberries.kz",
     "ozon.ru", "ozon.io", "ozon.travel", "ozonusercontent.com", "ozone.ru",
