@@ -1248,3 +1248,298 @@ body {
   -webkit-user-select: text;
   line-height: 1.6;
 }
+
+/* =========================================================================
+   VISUAL STYLES (skins) — toggled via html[data-style="…"], independent of
+   the dark/light theme ([data-theme]). "classic" = no attribute = all above.
+   Each skin defines a dark palette (default) + a light palette.
+   ========================================================================= */
+
+/* decorations off for every skin: crosshairs, blueprint grid, film grain,
+   ticket perforation */
+html[data-style] .cross,
+html[data-style] .bg__grid,
+html[data-style] .bg__grain,
+html[data-style] .dashed { display: none; }
+html[data-style] .bg::after { display: none; }
+
+/* ---------- ВОЗДУХ: milk light / warm coffee dark, soft solid cards ------ */
+html[data-style="air"] {
+  --d-0: #16120d;
+  --d-1: #1b1610;
+  --glass: #221c14;
+  --glass-2: #1d1810;
+  --glass-hi: #2a2318;
+  --edge: rgba(255, 255, 255, 0.07);
+  --edge-hi: rgba(255, 255, 255, 0.1);
+  --edge-lo: rgba(255, 255, 255, 0.04);
+  --ink: #efe8dd;
+  --ink-dim: #a99e8d;
+  --ink-faint: #7c7263;
+  --hair: rgba(255, 255, 255, 0.08);
+  --hair-2: rgba(255, 255, 255, 0.05);
+  --recess: rgba(0, 0, 0, 0.35);
+  --recess-deep: rgba(0, 0, 0, 0.5);
+  --toast-bg: rgba(34, 28, 20, 0.95);
+  --r: 24px;
+  --r-sm: 14px;
+}
+html[data-style="air"][data-theme="light"] {
+  --d-0: #f8f4ee;
+  --d-1: #f3ede4;
+  --glass: #ffffff;
+  --glass-2: #fdfaf5;
+  --glass-hi: #fffdf9;
+  --edge: rgba(120, 95, 55, 0.08);
+  --edge-hi: rgba(120, 95, 55, 0.12);
+  --edge-lo: rgba(120, 95, 55, 0.05);
+  --ink: #2c251d;
+  --ink-dim: #7a7060;
+  --ink-faint: #9a9184;
+  --hair: rgba(60, 45, 25, 0.09);
+  --hair-2: rgba(60, 45, 25, 0.06);
+  --lift-1: rgba(60, 45, 25, 0.04);
+  --lift-2: rgba(60, 45, 25, 0.07);
+  --lift-3: rgba(60, 45, 25, 0.11);
+  --recess: rgba(60, 45, 25, 0.06);
+  --recess-deep: rgba(60, 45, 25, 0.1);
+  --toast-bg: rgba(44, 37, 29, 0.95);
+}
+html[data-style="air"] .bg {
+  background: radial-gradient(90% 90% at 12% -10%, rgba(255, 244, 224, 0.06) 0%, transparent 55%), var(--d-0);
+}
+html[data-style="air"][data-theme="light"] .bg {
+  background: radial-gradient(90% 90% at 12% -10%, #fdf6ea 0%, rgba(253, 246, 234, 0) 55%), var(--d-0);
+}
+html[data-style="air"] .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+}
+html[data-style="air"][data-theme="light"] .glass {
+  box-shadow: 0 10px 32px rgba(84, 60, 26, 0.1);
+}
+html[data-style="air"] .connect { border-radius: 18px; }
+
+/* ---------- ЖУРНАЛ: paper, no cards, hairlines, type does the work ------- */
+html[data-style="mag"] {
+  --d-0: #191815;
+  --d-1: #191815;
+  --glass: transparent;
+  --glass-2: transparent;
+  --glass-hi: rgba(255, 255, 255, 0.04);
+  --edge: transparent;
+  --edge-hi: transparent;
+  --edge-lo: transparent;
+  --ink: #ece9e2;
+  --ink-dim: #97938a;
+  --ink-faint: #6e6a61;
+  --hair: rgba(236, 233, 226, 0.16);
+  --hair-2: rgba(236, 233, 226, 0.09);
+  --recess: rgba(0, 0, 0, 0.25);
+  --recess-deep: rgba(0, 0, 0, 0.4);
+  --toast-bg: rgba(28, 26, 23, 0.95);
+  --r: 0px;
+  --r-sm: 0px;
+}
+html[data-style="mag"][data-theme="light"] {
+  --d-0: #f4f3ef;
+  --d-1: #f4f3ef;
+  --glass-hi: rgba(28, 26, 23, 0.04);
+  --ink: #1c1a17;
+  --ink-dim: #55524b;
+  --ink-faint: #8b877e;
+  --hair: #dedbd2;
+  --hair-2: #e8e5dc;
+  --lift-1: rgba(28, 26, 23, 0.03);
+  --lift-2: rgba(28, 26, 23, 0.06);
+  --lift-3: rgba(28, 26, 23, 0.1);
+  --recess: rgba(28, 26, 23, 0.05);
+  --recess-deep: rgba(28, 26, 23, 0.08);
+  --toast-bg: rgba(28, 26, 23, 0.95);
+}
+html[data-style="mag"] .bg { background: var(--d-0); }
+html[data-style="mag"] .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+}
+html[data-style="mag"] .glass::before { display: none; }
+html[data-style="mag"] .connect {
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid var(--accent);
+  border-radius: 0;
+  padding-left: 4px;
+}
+html[data-style="mag"] .hero__code { letter-spacing: -0.05em; }
+
+/* ---------- РАССВЕТ: window color IS the state (fog ↔ dawn) -------------- */
+html[data-style="dawn"] {
+  --d-0: #15161a;
+  --d-1: #191a1e;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.04);
+  --glass-hi: rgba(255, 255, 255, 0.1);
+  --edge: rgba(255, 255, 255, 0.09);
+  --edge-hi: rgba(255, 255, 255, 0.14);
+  --edge-lo: rgba(255, 255, 255, 0.05);
+  --ink: #eceae4;
+  --ink-dim: #9b968c;
+  --ink-faint: #6e6a61;
+  --hair: rgba(255, 255, 255, 0.1);
+  --hair-2: rgba(255, 255, 255, 0.06);
+  --toast-bg: rgba(30, 30, 34, 0.95);
+  --r: 24px;
+  --r-sm: 14px;
+}
+html[data-style="dawn"][data-theme="light"] {
+  --d-0: #f1f0ed;
+  --d-1: #eceded;
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-2: rgba(255, 255, 255, 0.4);
+  --glass-hi: rgba(255, 255, 255, 0.75);
+  --edge: rgba(70, 50, 20, 0.1);
+  --edge-hi: rgba(70, 50, 20, 0.14);
+  --edge-lo: rgba(70, 50, 20, 0.05);
+  --ink: #29241d;
+  --ink-dim: #6f6a60;
+  --ink-faint: #9b968c;
+  --hair: rgba(70, 50, 20, 0.1);
+  --hair-2: rgba(70, 50, 20, 0.06);
+  --lift-1: rgba(70, 50, 20, 0.04);
+  --lift-2: rgba(70, 50, 20, 0.07);
+  --lift-3: rgba(70, 50, 20, 0.11);
+  --recess: rgba(70, 50, 20, 0.06);
+  --recess-deep: rgba(70, 50, 20, 0.1);
+  --toast-bg: rgba(41, 36, 29, 0.95);
+}
+/* fog (off) → dawn (connected); both themes */
+html[data-style="dawn"] .bg {
+  background: linear-gradient(175deg, #191a1e 0%, #131418 100%);
+  transition: background 600ms ease;
+}
+html[data-style="dawn"].vpn-on .bg {
+  background:
+    radial-gradient(50% 40% at 50% 105%, rgba(185, 111, 30, 0.55) 0%, transparent 75%),
+    linear-gradient(175deg, #191410 0%, #241a0e 100%);
+}
+html[data-style="dawn"][data-theme="light"] .bg {
+  background: linear-gradient(175deg, #f1f0ed 0%, #e6e7e7 100%);
+}
+html[data-style="dawn"][data-theme="light"].vpn-on .bg {
+  background:
+    radial-gradient(48% 36% at 50% 100%, #f6be62 0%, rgba(246, 190, 98, 0) 72%),
+    linear-gradient(175deg, #fdf4e2 0%, #f8dfb0 55%, #f3cb8a 100%);
+}
+html[data-style="dawn"] .glass { box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25); }
+html[data-style="dawn"][data-theme="light"] .glass { box-shadow: 0 14px 40px rgba(60, 45, 20, 0.1); }
+html[data-style="dawn"] .connect { border-radius: 999px; }
+
+/* ---------- ПЛАКАТ: neo-brutalism, hard borders and offset shadows ------- */
+html[data-style="poster"] {
+  --d-0: #17161a;
+  --d-1: #17161a;
+  --glass: #201f24;
+  --glass-2: #1c1b20;
+  --glass-hi: #26252b;
+  --edge: #f2f0ea;
+  --edge-hi: #f2f0ea;
+  --edge-lo: rgba(242, 240, 234, 0.4);
+  --ink: #f2f0ea;
+  --ink-dim: #b9b6ad;
+  --ink-faint: #8a877e;
+  --hair: rgba(242, 240, 234, 0.35);
+  --hair-2: rgba(242, 240, 234, 0.18);
+  --toast-bg: #201f24;
+  --r: 0px;
+  --r-sm: 0px;
+}
+html[data-style="poster"][data-theme="light"] {
+  --d-0: #f2f0ea;
+  --d-1: #f2f0ea;
+  --glass: #ffffff;
+  --glass-2: #faf8f3;
+  --glass-hi: #ffffff;
+  --edge: #141310;
+  --edge-hi: #141310;
+  --edge-lo: rgba(20, 19, 16, 0.4);
+  --ink: #141310;
+  --ink-dim: #3f3d38;
+  --ink-faint: #6e6b63;
+  --hair: rgba(20, 19, 16, 0.55);
+  --hair-2: rgba(20, 19, 16, 0.25);
+  --lift-1: rgba(20, 19, 16, 0.04);
+  --lift-2: rgba(20, 19, 16, 0.07);
+  --lift-3: rgba(20, 19, 16, 0.12);
+  --recess: rgba(20, 19, 16, 0.06);
+  --recess-deep: rgba(20, 19, 16, 0.1);
+  --toast-bg: #141310;
+}
+html[data-style="poster"] .bg { background: var(--d-0); }
+html[data-style="poster"] .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 2px solid var(--edge);
+  box-shadow: 7px 7px 0 var(--edge);
+}
+html[data-style="poster"] .glass::before { display: none; }
+html[data-style="poster"] .hero__code { font-weight: 900; letter-spacing: -0.05em; }
+html[data-style="poster"] .connect {
+  border: 3px solid var(--edge);
+  border-radius: 0;
+  box-shadow: 5px 5px 0 var(--edge);
+}
+
+/* ---------- ПУЛЬТ: cool steel tiles, fintech-clean ----------------------- */
+html[data-style="pult"] {
+  --d-0: #14171c;
+  --d-1: #171b21;
+  --glass: #1d222a;
+  --glass-2: #1a1f26;
+  --glass-hi: #232935;
+  --edge: #262c35;
+  --edge-hi: #2d3440;
+  --edge-lo: #20252e;
+  --ink: #e8eaee;
+  --ink-dim: #9aa1ac;
+  --ink-faint: #6b7280;
+  --hair: rgba(255, 255, 255, 0.08);
+  --hair-2: rgba(255, 255, 255, 0.05);
+  --toast-bg: rgba(29, 34, 42, 0.96);
+  --r: 18px;
+  --r-sm: 12px;
+}
+html[data-style="pult"][data-theme="light"] {
+  --d-0: #eef0f3;
+  --d-1: #e8ebef;
+  --glass: #ffffff;
+  --glass-2: #fbfcfd;
+  --glass-hi: #ffffff;
+  --edge: #e2e5ea;
+  --edge-hi: #d6dae1;
+  --edge-lo: #eaedf1;
+  --ink: #161a20;
+  --ink-dim: #5c6470;
+  --ink-faint: #8a919c;
+  --hair: rgba(20, 25, 35, 0.08);
+  --hair-2: rgba(20, 25, 35, 0.05);
+  --lift-1: rgba(20, 25, 35, 0.03);
+  --lift-2: rgba(20, 25, 35, 0.06);
+  --lift-3: rgba(20, 25, 35, 0.1);
+  --recess: rgba(20, 25, 35, 0.05);
+  --recess-deep: rgba(20, 25, 35, 0.09);
+  --toast-bg: rgba(22, 26, 32, 0.95);
+}
+html[data-style="pult"] .bg { background: var(--d-0); }
+html[data-style="pult"] .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid var(--edge);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+html[data-style="pult"][data-theme="light"] .glass {
+  box-shadow: 0 6px 20px rgba(26, 32, 48, 0.07);
+}
+html[data-style="pult"] .connect { border-radius: 13px; }

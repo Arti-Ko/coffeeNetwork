@@ -99,14 +99,20 @@ fn set_settings(mode: Mode, bypass_ru: bool) -> Result<Settings, String> {
     Ok(s)
 }
 
-/// Persist appearance preferences (primary + secondary accent, theme).
+/// Persist appearance preferences (accents, theme, visual style).
 /// Returns full Settings.
 #[tauri::command]
-fn set_appearance(accent: String, accent2: String, theme: String) -> Result<Settings, String> {
+fn set_appearance(
+    accent: String,
+    accent2: String,
+    theme: String,
+    style: String,
+) -> Result<Settings, String> {
     let mut s = store::load_settings();
     s.accent = accent;
     s.accent2 = accent2;
     s.theme = theme;
+    s.style = style;
     store::save_settings(&s)?;
     Ok(s)
 }

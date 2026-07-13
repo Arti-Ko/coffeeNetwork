@@ -59,6 +59,7 @@ interface Settings {
   accent: string; // named preset ("amber"…) or hex "#rrggbb"
   accent2: string; // secondary accent (background glow) — same value space
   theme: string; // "dark" | "light" | "system"
+  style: string; // "classic" | "air" | "mag" | "dawn" | "poster" | "pult"
   excluded_apps: string[]; // process names that bypass the VPN
 }
 
@@ -73,6 +74,7 @@ let settings: Settings = {
   accent: "amber",
   accent2: "amber",
   theme: "dark",
+  style: "classic",
   excluded_apps: [],
 };
 let status: Status = { running: false, active_server: null, mode: null, bypass_ru: true, core_path: null };
@@ -182,10 +184,20 @@ sysDark.addEventListener("change", () => {
   if (themePref === "system") applyTheme("system");
 });
 
+/** Visual style — a body-level skin. "classic" keeps the original look. */
+function applyStyle(style: string) {
+  if (!style || style === "classic") {
+    delete document.documentElement.dataset.style;
+  } else {
+    document.documentElement.dataset.style = style;
+  }
+}
+
 function applyAppearance(s: Settings) {
   applyAccent(s.accent || "amber");
   applyAccent2(s.accent2 || "amber");
   applyTheme(s.theme || "dark");
+  applyStyle(s.style || "classic");
 }
 
 /** Short uppercase code shown in the hero (airport-board style). */
@@ -216,6 +228,8 @@ function renderHero() {
   const connected = status.running && !busy;
   ticket.classList.toggle("is-on", connected);
   ticket.classList.toggle("is-busy", busy);
+  // root-level hook so style skins (e.g. «Рассвет») can react to connection state
+  document.documentElement.classList.toggle("vpn-on", connected);
 
   $("stateCode").textContent = heroCode();
 
@@ -808,10 +822,17 @@ function renderThemeSeg() {
   document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.theme === settings.theme);
   });
+  document
+    .querySelectorAll<HTMLButtonElement>("#settingsModal .seg-btn[data-style]")
+    .forEach((b) => {
+      b.classList.toggle("active", b.dataset.style === settings.style);
+    });
 }
 
-/** Apply a partial appearance change (any of accent / accent2 / theme). */
-async function saveAppearance(patch: Partial<Pick<Settings, "accent" | "accent2" | "theme">>) {
+/** Apply a partial appearance change (any of accent / accent2 / theme / style). */
+async function saveAppearance(
+  patch: Partial<Pick<Settings, "accent" | "accent2" | "theme" | "style">>
+) {
   // optimistic: apply instantly, then persist
   settings = { ...settings, ...patch };
   applyAppearance(settings);
@@ -829,6 +850,7 @@ async function saveAppearance(patch: Partial<Pick<Settings, "accent" | "accent2"
       accent: settings.accent,
       accent2: settings.accent2,
       theme: settings.theme,
+      style: settings.style || "classic",
     });
   } catch (e) {
     toast(String(e), true);
@@ -859,6 +881,11 @@ function bindSettings() {
   document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) =>
     b.addEventListener("click", () => saveAppearance({ theme: b.dataset.theme as string }))
   );
+  document
+    .querySelectorAll<HTMLButtonElement>("#settingsModal .seg-btn[data-style]")
+    .forEach((b) =>
+      b.addEventListener("click", () => saveAppearance({ style: b.dataset.style as string }))
+    );
   ($("accentCustom") as HTMLInputElement).addEventListener("input", (e) =>
     saveAppearance({ accent: (e.target as HTMLInputElement).value })
   );
