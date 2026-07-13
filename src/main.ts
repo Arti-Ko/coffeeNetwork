@@ -924,6 +924,7 @@ refresh();
 invoke<string>("app_version")
   .then((v) => {
     currentVersion = v;
+    $("issueTag").textContent = `сеть · v${v}`;
     $("setVersion").textContent = v;
   })
   .catch(() => {});

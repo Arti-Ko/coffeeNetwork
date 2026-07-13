@@ -1728,3 +1728,75 @@ html[data-style="pult"] .hero__code {
   letter-spacing: -0.01em;
 }
 html[data-style="pult"] .hero__name { font-size: 15px; font-weight: 500; }
+
+/* =========================================================================
+   ЖУРНАЛ — финальная полировка 1:1 с макетом (единственная тема)
+   ========================================================================= */
+/* бренд: зерно + разрядка, справа — «сеть · v…» */
+html[data-style="mag"] .brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--grotesk);
+  font-size: 12px; letter-spacing: 0.3em; font-weight: 600; color: var(--ink);
+}
+.bean {
+  width: 20px; height: 20px; flex: none;
+  background: linear-gradient(135deg, #e8a33d, #c47c22);
+  border-radius: 50% 50% 50% 15%;
+  position: relative;
+}
+.bean::after {
+  content: ""; position: absolute; inset: 5px 8px;
+  border-radius: 3px; background: rgba(255, 255, 255, 0.55);
+  transform: rotate(24deg);
+}
+html[data-style="mag"] .issue { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.1em; }
+
+/* герой: слово 88px, серые строки, без линейки и меты */
+html[data-style="mag"] .hero__code { font-size: 88px; letter-spacing: -0.045em; }
+html[data-style="mag"] .hero__rule { display: none; }
+html[data-style="mag"] .meta { display: none; }
+html[data-style="mag"] .hero__name {
+  font-size: 15px; font-weight: 400; color: var(--ink-dim);
+  text-transform: lowercase; margin-top: 10px;
+}
+html[data-style="mag"] .hero__sub {
+  font-family: var(--grotesk); font-size: 14px; letter-spacing: 0;
+  text-transform: none; color: var(--ink-faint);
+}
+
+/* кнопка-ссылка «подключить →» */
+html[data-style="mag"] .connect { width: fit-content; padding: 6px 4px 10px; }
+html[data-style="mag"] .connect__dot { display: none; }
+html[data-style="mag"] .connect__label {
+  font-family: var(--grotesk); font-size: 21px; font-weight: 600;
+  letter-spacing: 0; text-transform: lowercase;
+}
+html[data-style="mag"] .connect__arrow { font-size: 20px; margin-left: 10px; }
+
+/* панель серверов: оглавление с чернильной линейкой */
+html[data-style="mag"] .panel__head {
+  border-bottom: 1.5px solid var(--ink); padding-bottom: 10px;
+}
+html[data-style="mag"] .panel__head h2 {
+  font-size: 11px; letter-spacing: 0.26em; font-weight: 600;
+  color: var(--ink-dim); border: none;
+}
+html[data-style="mag"] .srv {
+  background: transparent; border: none; border-radius: 0; box-shadow: none;
+  border-bottom: 1px solid var(--hair); padding: 14px 2px;
+}
+html[data-style="mag"] .srv.selected {
+  background: transparent; border-color: var(--hair);
+}
+html[data-style="mag"] .srv__name {
+  font-family: var(--grotesk); font-size: 19px; font-weight: 600;
+  text-transform: lowercase; letter-spacing: -0.01em;
+}
+html[data-style="mag"] .srv.selected .srv__name::after {
+  content: " ●"; color: var(--accent); font-size: 11px; vertical-align: 2px;
+}
+html[data-style="mag"] .srv__addr { font-size: 11px; color: var(--ink-faint); }
+html[data-style="mag"] .srv__badge {
+  background: transparent; border: none; padding: 0;
+  font-size: 11px; letter-spacing: 0.14em; color: var(--ink-faint);
+}
