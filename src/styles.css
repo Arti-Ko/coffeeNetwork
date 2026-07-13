@@ -1629,3 +1629,102 @@ html[data-style="pult"] .headgrid__cell {
 html[data-style="pult"] .btn-ghost,
 html[data-style="pult"] .btn-solid,
 html[data-style="pult"] .connect { border-radius: 12px; }
+
+/* =========================================================================
+   SKIN LAYOUTS — 1:1 с макетами: у каждой темы своя композиция экрана,
+   а не только палитра и формы.
+   ========================================================================= */
+
+/* ВОЗДУХ: без кода-аэропорта и шапки-сетки; кнопка — кольцо по центру */
+html[data-style="air"] .hero__code { display: none; }
+html[data-style="air"] .headgrid { display: none; }
+html[data-style="air"] .hero { text-align: center; }
+html[data-style="air"] .hero__name { text-align: center; }
+html[data-style="air"] .hero__rule { margin-inline: auto; }
+html[data-style="air"] .hero__sub { text-align: center; }
+html[data-style="air"] .connect {
+  width: 172px;
+  height: 172px;
+  border-radius: 50%;
+  margin: 14px auto;
+  padding: 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+html[data-style="air"] .connect__label { font-size: 12px; letter-spacing: 0.12em; }
+html[data-style="air"] .connect__arrow { display: none; }
+html[data-style="air"] .connect__dot { width: 14px; height: 14px; }
+html[data-style="air"] .meta__row {
+  background: var(--glass);
+  border-radius: 14px;
+  padding: 9px 14px;
+  margin-bottom: 7px;
+  box-shadow: 0 4px 14px rgba(84, 60, 26, 0.06);
+}
+
+/* ЖУРНАЛ: слово-статус вместо кода; шапка-сетка и самолётик исчезают */
+html[data-style="mag"] .headgrid { display: none; }
+html[data-style="mag"] .plane { display: none; }
+html[data-style="mag"] .hero__code {
+  font-size: 84px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+html[data-style="mag"] .hero__name { font-weight: 500; }
+
+/* РАССВЕТ: тонкое слово-статус, пилюля по центру, минимум рамок */
+html[data-style="dawn"] .headgrid { display: none; }
+html[data-style="dawn"] .plane { display: none; }
+html[data-style="dawn"] .hero { text-align: center; }
+html[data-style="dawn"] .hero__rule { margin-inline: auto; }
+html[data-style="dawn"] .hero__code {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+html[data-style="dawn"] .connect {
+  width: fit-content;
+  margin-inline: auto;
+  padding: 15px 44px;
+}
+html[data-style="dawn"] .connect__arrow { display: none; }
+
+/* ПЛАКАТ: бренд-стикер, рубленое слово, самолётик долой */
+html[data-style="poster"] .plane { display: none; }
+html[data-style="poster"] .headgrid { display: none; }
+html[data-style="poster"] .brand {
+  background: var(--glass);
+  border: 2px solid var(--edge);
+  box-shadow: 4px 4px 0 var(--edge);
+  padding: 6px 12px;
+  width: fit-content;
+}
+html[data-style="poster"] .hero__code {
+  font-size: 120px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+}
+html[data-style="poster"] .srv-list li.selected,
+html[data-style="poster"] #serverList li.selected {
+  background: #ffd23f;
+  color: #141310;
+}
+html[data-style="poster"][data-theme="dark"] .srv-list li.selected,
+html[data-style="poster"][data-theme="dark"] #serverList li.selected {
+  background: rgba(255, 210, 63, 0.22);
+  color: inherit;
+}
+
+/* ПУЛЬТ: компактное слово-статус, всё остальное — плитки (выше) */
+html[data-style="pult"] .plane { display: none; }
+html[data-style="pult"] .hero__code {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+html[data-style="pult"] .hero__name { font-size: 15px; font-weight: 500; }

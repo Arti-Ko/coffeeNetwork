@@ -202,6 +202,12 @@ function applyAppearance(s: Settings) {
 
 /** Short uppercase code shown in the hero (airport-board style). */
 function heroCode(): string {
+  // word-based skins show a status word instead of the airport code
+  const st = settings.style || "classic";
+  if (st === "mag") return busy ? "секунду…" : status.running ? "защищено." : "отключено.";
+  if (st === "poster") return busy ? "···" : status.running ? "вкл." : "выкл.";
+  if (st === "dawn") return busy ? "···" : status.running ? "защищено" : "не защищено";
+  if (st === "pult") return busy ? "···" : status.running ? "Защищено" : "Отключено";
   if (busy) return status.running ? "BYE" : "...";
   if (!status.running) return "OFF";
   const active = servers.find((s) => s.id === status.active_server);
@@ -838,6 +844,7 @@ async function saveAppearance(
   applyAppearance(settings);
   renderSwatches();
   renderThemeSeg();
+  render(); // словесные скины меняют текст hero — обновляем сразу, не ждём poll
   // when a preset is picked, reset the matching custom picker to its default
   if (patch.accent && !patch.accent.startsWith("#")) {
     ($("accentCustom") as HTMLInputElement).value = DEFAULT_CUSTOM;
