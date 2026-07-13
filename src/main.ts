@@ -171,50 +171,18 @@ function applyAccent2(value: string) {
   root.setProperty("--accent-2-glow", accentAlpha(value, 0.2));
 }
 
-let themePref = "dark";
-const sysDark = window.matchMedia("(prefers-color-scheme: dark)");
-
-function applyTheme(theme: string) {
-  themePref = theme;
-  const effective =
-    theme === "system" ? (sysDark.matches ? "dark" : "light") : theme;
-  document.documentElement.dataset.theme = effective;
-}
-sysDark.addEventListener("change", () => {
-  if (themePref === "system") applyTheme("system");
-});
-
-/** Visual style — a body-level skin. "classic" keeps the original look. */
-function applyStyle(style: string) {
-  if (!style || style === "classic") {
-    delete document.documentElement.dataset.style;
-  } else {
-    document.documentElement.dataset.style = style;
-  }
+/** Редизайн: единственная тема — «Журнал» (светлая бумага, карамель).
+ *  Сохранённые в settings.json значения темы/акцента игнорируются. */
+function applyAppearance(_s: Settings) {
+  applyAccent("#c9862b");
+  applyAccent2("#c9862b");
+  document.documentElement.dataset.theme = "light";
+  document.documentElement.dataset.style = "mag";
 }
 
-function applyAppearance(s: Settings) {
-  applyAccent(s.accent || "amber");
-  applyAccent2(s.accent2 || "amber");
-  applyTheme(s.theme || "dark");
-  applyStyle(s.style || "classic");
-}
-
-/** Short uppercase code shown in the hero (airport-board style). */
+/** Слово-статус в hero — «Журнал» показывает состояние словом. */
 function heroCode(): string {
-  // word-based skins show a status word instead of the airport code
-  const st = settings.style || "classic";
-  if (st === "mag") return busy ? "секунду…" : status.running ? "защищено." : "отключено.";
-  if (st === "poster") return busy ? "···" : status.running ? "вкл." : "выкл.";
-  if (st === "dawn") return busy ? "···" : status.running ? "защищено" : "не защищено";
-  if (st === "pult") return busy ? "···" : status.running ? "Защищено" : "Отключено";
-  if (busy) return status.running ? "BYE" : "...";
-  if (!status.running) return "OFF";
-  const active = servers.find((s) => s.id === status.active_server);
-  if (!active) return "ON";
-  // Prefer an alpha chunk of the server name; fall back to protocol.
-  const alpha = (active.name.match(/[A-Za-zА-Яа-я0-9]+/g) || []).join("");
-  return (alpha.slice(0, 3) || active.protocol.slice(0, 3)).toUpperCase();
+  return busy ? "секунду…" : status.running ? "защищено." : "отключено.";
 }
 
 // ---------------------------------------------------------------------------
@@ -244,11 +212,11 @@ function renderHero() {
 
   const label = document.querySelector(".connect__label") as HTMLElement;
   label.textContent = busy
-    ? status.running ? "DISCONNECTING" : "CONNECTING"
-    : status.running ? "DISCONNECT" : "CONNECT";
+    ? status.running ? "отключаю…" : "подключаю…"
+    : status.running ? "отключить" : "подключить";
 
-  $("headStatus").textContent = busy ? "···" : status.running ? "ONLINE" : "OFFLINE";
-  $("headMode").innerHTML = settings.mode === "tun" ? "TUN&nbsp;·&nbsp;ALL" : "SYS&nbsp;PROXY";
+  $("headStatus").textContent = busy ? "···" : status.running ? "онлайн" : "офлайн";
+  $("headMode").innerHTML = settings.mode === "tun" ? "весь&nbsp;трафик" : "только&nbsp;прокси";
 
   const active = servers.find((s) => s.id === status.active_server);
   $("activeName").textContent = active
@@ -258,14 +226,14 @@ function renderHero() {
       : "сервер не выбран";
 
   $("statusText").textContent = busy
-    ? "NEGOTIATING TUNNEL"
+    ? "устанавливаю туннель…"
     : status.running
       ? settings.mode === "tun"
-        ? "TUNNEL ACTIVE · ALL TRAFFIC"
-        : "PROXY ACTIVE · SYSTEM-WIDE"
+        ? "туннель активен · весь трафик"
+        : "прокси активен · системно"
       : servers.length
-        ? "DISCONNECTED · STANDBY"
-        : "NO NODE · STANDBY";
+        ? "трафик идёт напрямую"
+        : "добавь сервер, чтобы начать";
 }
 
 function renderControls() {
@@ -395,7 +363,7 @@ function renderCore() {
     startTraffic(); // poller drives the footer with live ↓/↑ speed
   } else {
     stopTraffic();
-    el.textContent = settings.bypass_ru ? "STANDBY · RU-BYPASS" : "STANDBY · FULL TUNNEL";
+    el.textContent = settings.bypass_ru ? "ожидание · РФ напрямую" : "ожидание · весь трафик";
   }
 }
 
@@ -802,75 +770,8 @@ function setUpdMsg(text: string, kind: "" | "ok" | "err" = "") {
   el.className = `set__msg mono${kind ? " " + kind : ""}`;
 }
 
-const DEFAULT_CUSTOM = "#e8a33d";
-
-/** Render one preset row into `boxId`, marking `current` selected. */
-function renderSwatchRow(boxId: string, current: string, onPick: (name: string) => void) {
-  const box = $(boxId);
-  box.innerHTML = "";
-  for (const [name, color] of Object.entries(ACCENTS)) {
-    const b = document.createElement("button");
-    b.className = "swatch";
-    b.style.setProperty("--sw", color);
-    b.title = name;
-    if (current === name) b.classList.add("selected");
-    b.addEventListener("click", () => onPick(name));
-    box.appendChild(b);
-  }
-}
-
-function renderSwatches() {
-  renderSwatchRow("swatches", settings.accent, (name) => saveAppearance({ accent: name }));
-  renderSwatchRow("swatches2", settings.accent2, (name) => saveAppearance({ accent2: name }));
-}
-
-function renderThemeSeg() {
-  document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.theme === settings.theme);
-  });
-  document
-    .querySelectorAll<HTMLButtonElement>("#settingsModal .seg-btn[data-style]")
-    .forEach((b) => {
-      b.classList.toggle("active", b.dataset.style === settings.style);
-    });
-}
-
-/** Apply a partial appearance change (any of accent / accent2 / theme / style). */
-async function saveAppearance(
-  patch: Partial<Pick<Settings, "accent" | "accent2" | "theme" | "style">>
-) {
-  // optimistic: apply instantly, then persist
-  settings = { ...settings, ...patch };
-  applyAppearance(settings);
-  renderSwatches();
-  renderThemeSeg();
-  render(); // словесные скины меняют текст hero — обновляем сразу, не ждём poll
-  // when a preset is picked, reset the matching custom picker to its default
-  if (patch.accent && !patch.accent.startsWith("#")) {
-    ($("accentCustom") as HTMLInputElement).value = DEFAULT_CUSTOM;
-  }
-  if (patch.accent2 && !patch.accent2.startsWith("#")) {
-    ($("accentCustom2") as HTMLInputElement).value = DEFAULT_CUSTOM;
-  }
-  try {
-    settings = await invoke<Settings>("set_appearance", {
-      accent: settings.accent,
-      accent2: settings.accent2,
-      theme: settings.theme,
-      style: settings.style || "classic",
-    });
-  } catch (e) {
-    toast(String(e), true);
-  }
-}
 
 async function openSettings() {
-  renderSwatches();
-  renderThemeSeg();
-  const c1 = $("accentCustom") as HTMLInputElement;
-  const c2 = $("accentCustom2") as HTMLInputElement;
-  c1.value = settings.accent.startsWith("#") ? settings.accent : DEFAULT_CUSTOM;
-  c2.value = settings.accent2.startsWith("#") ? settings.accent2 : DEFAULT_CUSTOM;
   setUpdMsg("");
   $("setVersion").textContent = currentVersion;
   $("settingsModal").hidden = false;
@@ -884,20 +785,6 @@ function bindSettings() {
   $("settingsBtn").addEventListener("click", openSettings);
   document.querySelectorAll<HTMLElement>("[data-close]").forEach((el) =>
     el.addEventListener("click", closeSettings)
-  );
-  document.querySelectorAll<HTMLButtonElement>("#themeSeg .seg-btn").forEach((b) =>
-    b.addEventListener("click", () => saveAppearance({ theme: b.dataset.theme as string }))
-  );
-  document
-    .querySelectorAll<HTMLButtonElement>("#settingsModal .seg-btn[data-style]")
-    .forEach((b) =>
-      b.addEventListener("click", () => saveAppearance({ style: b.dataset.style as string }))
-    );
-  ($("accentCustom") as HTMLInputElement).addEventListener("input", (e) =>
-    saveAppearance({ accent: (e.target as HTMLInputElement).value })
-  );
-  ($("accentCustom2") as HTMLInputElement).addEventListener("input", (e) =>
-    saveAppearance({ accent2: (e.target as HTMLInputElement).value })
   );
   $("setCheckUpd").addEventListener("click", () => checkForUpdate(true));
   // Esc closes settings (and dismisses the update dialog as «later»)
