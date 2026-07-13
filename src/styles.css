@@ -1800,3 +1800,59 @@ html[data-style="mag"] .srv__badge {
   background: transparent; border: none; padding: 0;
   font-size: 11px; letter-spacing: 0.14em; color: var(--ink-faint);
 }
+
+/* =========================================================================
+   ЖУРНАЛ — фиксы по скринам: слово целиком, текстовые режимы,
+   нумерация серверов, настройки в ссылках
+   ========================================================================= */
+html[data-style="mag"] .app { grid-template-columns: 1.08fr 430px; }
+html[data-style="mag"] .hero { margin-top: auto; }
+html[data-style="mag"] .hero__code {
+  font-size: clamp(48px, 9vw, 92px); line-height: 0.95; letter-spacing: -0.05em;
+}
+html[data-style="mag"] .hero__code .dot { color: var(--accent); }
+html[data-style="mag"] .is-on .hero__code .dot { color: var(--ink); }
+html[data-style="mag"] .hero__name { display: none; }
+html[data-style="mag"] .hero__sub {
+  white-space: normal; max-width: 360px; line-height: 1.55; font-size: 15px;
+}
+
+/* режимы и РФ-обход — текстовая строка, без коробок */
+html[data-style="mag"] .controls {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; margin-top: 20px;
+}
+html[data-style="mag"] .seg { background: transparent; border: none; box-shadow: none; padding: 0; gap: 16px; }
+html[data-style="mag"] .seg .seg-btn {
+  background: transparent; border: none; box-shadow: none; border-radius: 0;
+  font-family: var(--grotesk); font-size: 14px; letter-spacing: 0;
+  text-transform: lowercase; color: var(--ink-dim); padding: 2px 0 6px;
+}
+html[data-style="mag"] .seg .seg-btn.active {
+  background: transparent; box-shadow: none;
+  color: var(--ink); font-weight: 700; border-bottom: 2px solid var(--accent);
+}
+html[data-style="mag"] .switch-row {
+  background: transparent; border: none; box-shadow: none; padding: 0; width: auto; gap: 10px;
+}
+html[data-style="mag"] .switch-row__txt strong {
+  font-family: var(--grotesk); font-size: 14px; font-weight: 400;
+  letter-spacing: 0; text-transform: lowercase; color: var(--ink-dim);
+}
+html[data-style="mag"] .switch-row small { display: none; }
+
+/* плавающая шестерёнка не нужна — «настройки» в нижних ссылках */
+html[data-style="mag"] .settings-btn { display: none; }
+
+/* серверы: номер, имя, протокол справа; действия — по ховеру */
+html[data-style="mag"] .srv-list { counter-reset: srv; }
+html[data-style="mag"] .srv { display: flex; align-items: baseline; gap: 14px; }
+html[data-style="mag"] .srv::before {
+  counter-increment: srv; content: counter(srv, decimal-leading-zero);
+  font-family: var(--mono); font-size: 12px; color: var(--ink-faint); flex: none;
+}
+html[data-style="mag"] .srv.selected::before { color: var(--accent); font-weight: 700; }
+html[data-style="mag"] .srv__body { flex: 1; min-width: 0; }
+html[data-style="mag"] .srv__badge { order: 3; margin-left: auto; flex: none; }
+html[data-style="mag"] .srv__actions { order: 4; opacity: 0; transition: opacity 150ms var(--ease); }
+html[data-style="mag"] .srv:hover .srv__actions,
+html[data-style="mag"] .srv:focus-within .srv__actions { opacity: 1; }

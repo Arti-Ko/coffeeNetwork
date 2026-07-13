@@ -205,7 +205,11 @@ function renderHero() {
   // root-level hook so style skins (e.g. «Рассвет») can react to connection state
   document.documentElement.classList.toggle("vpn-on", connected);
 
-  $("stateCode").textContent = heroCode();
+  // точка в слове-статусе — карамельная (инвертируется при подключении)
+  const code = heroCode();
+  $("stateCode").innerHTML = code.endsWith(".")
+    ? `${esc(code.slice(0, -1))}<span class="dot">.</span>`
+    : esc(code);
 
   const dot = $("statusDot");
   dot.classList.toggle("on", connected);
@@ -225,15 +229,18 @@ function renderHero() {
       ? servers.find((s) => s.id === selectedId)?.name ?? "сервер не выбран"
       : "сервер не выбран";
 
+  const sel = servers.find((s) => s.id === (status.running ? status.active_server : selectedId));
   $("statusText").textContent = busy
     ? "устанавливаю туннель…"
     : status.running
-      ? settings.mode === "tun"
-        ? "туннель активен · весь трафик"
-        : "прокси активен · системно"
+      ? `${sel ? `${sel.name.toLowerCase()} — ${sel.protocol.toLowerCase()} · ` : ""}${
+          settings.mode === "tun" ? "весь трафик" : "только прокси"
+        }${settings.bypass_ru ? ", сайты РФ напрямую" : ""}`
       : servers.length
-        ? "трафик идёт напрямую"
-        : "добавь сервер, чтобы начать";
+        ? sel
+          ? `Трафик идёт как обычно. Выбран ${sel.name} — ${sel.protocol.toLowerCase()}.`
+          : "Трафик идёт как обычно."
+        : "Добавь сервер в списке справа, чтобы начать.";
 }
 
 function renderControls() {
@@ -786,6 +793,7 @@ function bindSettings() {
   document.querySelectorAll<HTMLElement>("[data-close]").forEach((el) =>
     el.addEventListener("click", closeSettings)
   );
+  $("settingsToggle").addEventListener("click", openSettings);
   $("setCheckUpd").addEventListener("click", () => checkForUpdate(true));
   // Esc closes settings (and dismisses the update dialog as «later»)
   window.addEventListener("keydown", (e) => {
