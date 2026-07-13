@@ -1543,3 +1543,89 @@ html[data-style="pult"][data-theme="light"] .glass {
   box-shadow: 0 6px 20px rgba(26, 32, 48, 0.07);
 }
 html[data-style="pult"] .connect { border-radius: 13px; }
+
+/* =========================================================================
+   SKIN COMPONENT SHAPES — каждая тема получает свою форму ключевых
+   элементов, а не только палитру.
+   ========================================================================= */
+
+/* ВОЗДУХ: пилюли, мягкие сегменты, крупные радиусы */
+html[data-style="air"] .connect { border-radius: 999px; }
+html[data-style="air"] .btn-ghost,
+html[data-style="air"] .btn-solid { border-radius: 999px; }
+html[data-style="air"] .seg { border-radius: 999px; }
+html[data-style="air"] .seg-btn { border-radius: 999px; }
+html[data-style="air"] .headgrid { border: none; }
+
+/* ЖУРНАЛ: всё текстом — кнопки как ссылки с подчёркиванием */
+html[data-style="mag"] .btn-ghost {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--hair);
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-style="mag"] .btn-solid {
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  border-bottom: 2.5px solid var(--accent);
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-style="mag"] .seg { background: transparent; border-radius: 0; padding: 0; gap: 14px; }
+html[data-style="mag"] .seg-btn { border-radius: 0; }
+html[data-style="mag"] .seg-btn.active {
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 2px solid var(--accent);
+}
+html[data-style="mag"] .headgrid { border: none; }
+html[data-style="mag"] .connect { font-size: 18px; }
+
+/* РАССВЕТ: пилюли и мягкое стекло */
+html[data-style="dawn"] .btn-ghost,
+html[data-style="dawn"] .btn-solid,
+html[data-style="dawn"] .seg,
+html[data-style="dawn"] .seg-btn { border-radius: 999px; }
+
+/* ПЛАКАТ: всё с жёсткой рамкой и офсетной тенью */
+html[data-style="poster"] .btn-ghost {
+  border: 2px solid var(--edge);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--edge);
+  background: var(--glass);
+}
+html[data-style="poster"] .btn-solid {
+  border: 2px solid var(--edge);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--edge);
+}
+html[data-style="poster"] .seg { border-radius: 0; padding: 0; background: transparent; gap: 6px; }
+html[data-style="poster"] .seg-btn { border: 2px solid var(--edge); border-radius: 0; }
+html[data-style="poster"] .seg-btn.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 3px 3px 0 var(--edge);
+}
+html[data-style="poster"] .connect { font-weight: 800; letter-spacing: 0.1em; }
+html[data-style="poster"] .hero__name { font-weight: 900; text-transform: uppercase; }
+
+/* ПУЛЬТ: строки-плитки, компактно и чисто */
+html[data-style="pult"] .meta__row {
+  background: var(--glass-2);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+}
+html[data-style="pult"] .headgrid { border: none; gap: 8px; }
+html[data-style="pult"] .headgrid__cell {
+  background: var(--glass-2);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+html[data-style="pult"] .btn-ghost,
+html[data-style="pult"] .btn-solid,
+html[data-style="pult"] .connect { border-radius: 12px; }
