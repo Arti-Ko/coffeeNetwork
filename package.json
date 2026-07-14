@@ -1,6 +1,6 @@
 {
   "name": "coffeenetwork",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "description": "coffeeNetwork — powerful macOS VPN client (Hysteria2/VLESS/TUIC) with smart RU split-tunneling, powered by sing-box",
   "type": "module",
   "scripts": {

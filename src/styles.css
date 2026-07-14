@@ -1324,8 +1324,8 @@ html[data-style="air"] .connect { border-radius: 18px; }
 
 /* ---------- ЖУРНАЛ: paper, no cards, hairlines, type does the work ------- */
 html[data-style="mag"] {
-  --d-0: #191815;
-  --d-1: #191815;
+  --d-0: #161616;
+  --d-1: #161616;
   --glass: transparent;
   --glass-2: transparent;
   --glass-hi: rgba(255, 255, 255, 0.04);
@@ -1770,8 +1770,16 @@ html[data-style="mag"] .hero__code {
   letter-spacing: -0.045em;
   white-space: nowrap;
 }
-html[data-style="mag"] .hero__code .dot { color: var(--accent); }
-html[data-style="mag"] .is-on .hero__code .dot { color: var(--ink); }
+/* точка-статус — идеально круглая (глиф «.» у гротеска квадратный) */
+html[data-style="mag"] .hero__code .dot {
+  display: inline-block;
+  width: 0.13em; height: 0.13em;
+  margin-left: 0.06em;
+  border-radius: 50%;
+  background: var(--accent);
+  color: transparent;
+}
+html[data-style="mag"] .is-on .hero__code .dot { background: var(--ink); color: transparent; }
 html[data-style="mag"] .hero__name { display: none; }
 html[data-style="mag"] .hero__rule { display: none; }
 html[data-style="mag"] .meta { display: none; }

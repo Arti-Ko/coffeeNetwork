@@ -1,6 +1,6 @@
 [package]
 name = "splitbox"
-version = "0.3.17"
+version = "0.3.18"
 description = "Powerful cross-platform VPN client with smart RU split-tunneling"
 authors = ["you"]
 edition = "2021"
