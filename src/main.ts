@@ -105,6 +105,30 @@ function esc(s: string): string {
   return d.innerHTML;
 }
 
+/** Копирование, живучее в WKWebView: clipboard API может быть недоступен —
+ *  тогда скрытая textarea + execCommand. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // appearance — accent color + light/dark/system theme
 // ---------------------------------------------------------------------------
@@ -316,6 +340,7 @@ function renderServers() {
         <span class="srv__addr">${esc(maskAddr(s.address))}</span>
       </div>
       <div class="srv__actions">
+        <button class="icon-btn copy" title="Скопировать ссылку">⧉</button>
         <button class="icon-btn bundle" title="Bundle (WiFi+Mobile)">⊕</button>
         <button class="icon-btn rename" title="Переименовать">✎</button>
         <button class="icon-btn del" title="Удалить">✕</button>
@@ -323,6 +348,12 @@ function renderServers() {
 
     li.addEventListener("click", (e) => {
       const t = e.target as HTMLElement;
+      if (t.classList.contains("copy")) {
+        copyText(s.raw).then((ok) =>
+          toast(ok ? `Ссылка «${s.name}» скопирована` : "Не удалось скопировать", !ok)
+        );
+        return;
+      }
       if (t.classList.contains("bundle")) {
         openBundleModal(s);
         return;
@@ -332,7 +363,7 @@ function renderServers() {
         return;
       }
       if (t.classList.contains("del")) {
-        deleteServer(s);
+        deleteServer(s, t as HTMLButtonElement);
         return;
       }
       selectedId = s.id;
@@ -618,11 +649,29 @@ function openBundleModal(wifiServer: Server) {
   generate();
 }
 
-async function deleteServer(s: Server) {
-  if (!window.confirm(`Удалить «${s.name}»?`)) return;
-  servers = await invoke<Server[]>("delete_server", { id: s.id });
+/** Удаление без window.confirm (в Tauri/WKWebView он молча возвращает false):
+ *  первый клик «взводит» кнопку, второй — удаляет. Через 2,5 с взвод сбрасывается. */
+async function deleteServer(s: Server, btn: HTMLButtonElement) {
+  if (btn.dataset.arm !== "1") {
+    btn.dataset.arm = "1";
+    btn.textContent = "удалить?";
+    btn.classList.add("armed");
+    window.setTimeout(() => {
+      btn.dataset.arm = "";
+      btn.textContent = "✕";
+      btn.classList.remove("armed");
+    }, 2500);
+    return;
+  }
+  try {
+    servers = await invoke<Server[]>("delete_server", { id: s.id });
+  } catch (e) {
+    toast(String(e), true);
+    return;
+  }
   if (selectedId === s.id) selectedId = servers[0]?.id ?? null;
   status = await invoke<Status>("status");
+  toast(`Удалено: ${s.name}`);
   render();
 }
 
@@ -673,15 +722,9 @@ function bindBundleModal() {
   $("bundleCopyBtn").addEventListener("click", () => {
     const text = $("bundleOutput").textContent ?? "";
     if (!text) return;
-    navigator.clipboard.writeText(text).catch(() => {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      ta.remove();
-    });
-    toast("Bundle скопирован");
+    copyText(text).then((ok) =>
+      toast(ok ? "Bundle скопирован" : "Не удалось скопировать", !ok)
+    );
   });
   document.querySelectorAll<HTMLElement>("[data-close-bundle]").forEach((el) =>
     el.addEventListener("click", () => {

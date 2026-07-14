@@ -1916,6 +1916,11 @@ html[data-style="mag"] .srv__actions {
   background: var(--d-0); padding-left: 10px;
   opacity: 0; transition: opacity 150ms var(--ease);
 }
+/* взведённая кнопка удаления: «удалить?» вторым кликом подтверждает */
+html[data-style="mag"] .icon-btn.armed {
+  font-family: var(--grotesk); font-size: 12px; font-weight: 700;
+  color: var(--accent);
+}
 html[data-style="mag"] .srv:hover .srv__actions,
 html[data-style="mag"] .srv:focus-within .srv__actions { opacity: 1; }
 
