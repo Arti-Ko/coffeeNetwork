@@ -70,6 +70,8 @@
           </div>
         </dl>
 
+        <div class="stats mono" id="statsLine" hidden></div>
+
         <button id="powerBtn" class="connect" aria-live="polite">
           <span class="connect__dot" id="statusDot"></span>
           <span class="connect__label">CONNECT</span>
@@ -247,6 +249,15 @@
             <button id="setCheckUpd" class="btn-ghost mono">Проверить обновления</button>
           </div>
           <div id="setUpdMsg" class="set__msg mono"></div>
+        </section>
+
+        <section class="set">
+          <div class="set__label mono">ТЕМА</div>
+          <div class="theme-seg mono" role="group" aria-label="Тема оформления">
+            <button class="theme-btn" data-theme-pick="light">светлая</button>
+            <button class="theme-btn" data-theme-pick="dark">тёмная</button>
+            <button class="theme-btn" data-theme-pick="system">системная</button>
+          </div>
         </section>
 
       </div>

@@ -171,13 +171,34 @@ function applyAccent2(value: string) {
   root.setProperty("--accent-2-glow", accentAlpha(value, 0.2));
 }
 
-/** Редизайн: единственная тема — «Журнал» (светлая бумага, карамель).
- *  Сохранённые в settings.json значения темы/акцента игнорируются. */
+/** Редизайн: единственная тема — «Журнал» (бумага/карамель), но со светлым и
+ *  тёмным вариантом. Выбор хранится в localStorage (Rust-настройки не нужны). */
+const THEME_KEY = "cn.theme";
+type ThemePick = "light" | "dark" | "system";
+
+function themePick(): ThemePick {
+  const v = localStorage.getItem(THEME_KEY);
+  return v === "dark" || v === "system" ? v : "light";
+}
+
+function resolveTheme(pick: ThemePick): "light" | "dark" {
+  if (pick === "system")
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return pick;
+}
+
 function applyAppearance(_s: Settings) {
   applyAccent("#c9862b");
   applyAccent2("#c9862b");
-  document.documentElement.dataset.theme = "light";
+  document.documentElement.dataset.theme = resolveTheme(themePick());
   document.documentElement.dataset.style = "mag";
+}
+
+function renderThemeButtons() {
+  const pick = themePick();
+  document.querySelectorAll<HTMLButtonElement>(".theme-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themePick === pick);
+  });
 }
 
 /** Слово-статус в hero — «Журнал» показывает состояние словом. */
@@ -233,7 +254,7 @@ function renderHero() {
   $("statusText").textContent = busy
     ? "устанавливаю туннель…"
     : status.running
-      ? `${sel ? `${sel.name.toLowerCase()} — ${sel.protocol.toLowerCase()} · ` : ""}${
+      ? `${sel ? `${sel.name.toLowerCase()} · ${sel.protocol.toLowerCase()} · ` : ""}${
           settings.mode === "tun" ? "весь трафик" : "только прокси"
         }${settings.bypass_ru ? ", сайты РФ напрямую" : ""}`
       : servers.length
@@ -327,17 +348,27 @@ function renderServers() {
 // ---------------------------------------------------------------------------
 let trafTimer: number | null = null;
 let trafPrev: { up: number; down: number; t: number } | null = null;
+let connectedAt: number | null = null; // старт локального таймера сессии
 
 function fmtSpeed(bps: number): string {
-  if (bps < 1024) return `${Math.round(bps)} B/s`;
-  if (bps < 1024 * 1024) return `${Math.round(bps / 1024)} KB/s`;
-  return `${(bps / 1024 / 1024).toFixed(1)} MB/s`;
+  if (bps < 1024) return `${Math.round(bps)} б/с`;
+  if (bps < 1024 * 1024) return `${Math.round(bps / 1024)} кб/с`;
+  return `${(bps / 1024 / 1024).toFixed(1).replace(".", ",")} мб/с`;
+}
+
+function fmtElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
 }
 
 function renderSpeed(down: number, up: number) {
-  $("corePath").innerHTML =
+  $("statsLine").innerHTML =
     `<span class="spd"><b>↓</b> ${fmtSpeed(down)}</span>` +
-    `<span class="spd"><b>↑</b> ${fmtSpeed(up)}</span>`;
+    `<span class="spd"><b>↑</b> ${fmtSpeed(up)}</span>` +
+    (connectedAt ? `<span class="spd">${fmtElapsed(Date.now() - connectedAt)}</span>` : "");
 }
 
 async function pollTraffic() {
@@ -361,6 +392,8 @@ async function pollTraffic() {
 function startTraffic() {
   if (trafTimer) return;
   trafPrev = null;
+  if (!connectedAt) connectedAt = Date.now();
+  $("statsLine").hidden = false;
   renderSpeed(0, 0);
   pollTraffic();
   trafTimer = window.setInterval(pollTraffic, 1000);
@@ -372,6 +405,8 @@ function stopTraffic() {
     trafTimer = null;
   }
   trafPrev = null;
+  connectedAt = null;
+  $("statsLine").hidden = true;
 }
 
 function renderCore() {
@@ -382,7 +417,8 @@ function renderCore() {
     return;
   }
   if (status.running) {
-    startTraffic(); // poller drives the footer with live ↓/↑ speed
+    startTraffic(); // поллер ведёт строку скорости/таймер над кнопкой
+    el.textContent = "";
   } else {
     stopTraffic();
     el.textContent = ""; // «Журнал»: в простое футер пуст, как на макете
@@ -810,6 +846,17 @@ function bindSettings() {
   );
   $("settingsToggle").addEventListener("click", openSettings);
   $("setCheckUpd").addEventListener("click", () => checkForUpdate(true));
+  document.querySelectorAll<HTMLButtonElement>(".theme-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      localStorage.setItem(THEME_KEY, b.dataset.themePick ?? "light");
+      applyAppearance(settings);
+      renderThemeButtons();
+    })
+  );
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (themePick() === "system") applyAppearance(settings);
+  });
+  renderThemeButtons();
   // Esc closes settings (and dismisses the update dialog as «later»)
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;

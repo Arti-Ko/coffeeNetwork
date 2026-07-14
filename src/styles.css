@@ -1738,7 +1738,7 @@ html[data-style="mag"] .app {
   gap: 56px;
   padding: 48px 56px 40px;
 }
-html[data-style="mag"] .ticket { padding: 0; }
+html[data-style="mag"] .ticket { padding: 0; container-type: inline-size; }
 html[data-style="mag"] .panel { padding: 0; }
 
 /* бренд: золотое зерно-кружок + разрядка */
@@ -1762,10 +1762,13 @@ html[data-style="mag"] .brand {
 /* герой: жирное слово-статус, точка карамельная */
 html[data-style="mag"] .hero { margin-top: auto; padding: 0; }
 html[data-style="mag"] .hero__code {
-  font-size: clamp(56px, 9vw, 108px);
+  /* размер от ширины левой колонки — «отключено.» всегда влезает целиком */
+  font-size: clamp(44px, 8vw, 108px);
+  font-size: clamp(40px, 15.2cqw, 112px);
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.045em;
+  white-space: nowrap;
 }
 html[data-style="mag"] .hero__code .dot { color: var(--accent); }
 html[data-style="mag"] .is-on .hero__code .dot { color: var(--ink); }
@@ -1918,4 +1921,47 @@ html[data-style="mag"] .tools .btn-ghost:hover {
 }
 html[data-style="mag"] .tools #importToggle {
   color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+}
+
+/* --- подключено: слово карамельное без свечения, кнопка — блеклая ссылка,
+       режимы скрыты (итог уже в подписи), скорость+таймер над кнопкой --- */
+html[data-style="mag"] .ticket.is-on .hero__code { text-shadow: none; }
+html[data-style="mag"] .ticket.is-on .connect {
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid var(--hair);
+  color: var(--ink);
+  box-shadow: none;
+  margin-top: 40px;
+  margin-bottom: auto;
+}
+html[data-style="mag"] .ticket.is-on .controls { display: none; }
+
+.stats[hidden] { display: none; }
+html[data-style="mag"] .stats {
+  display: flex; gap: 26px; align-items: baseline;
+  margin-top: 44px;
+  font-size: 14px; letter-spacing: 0.04em; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+html[data-style="mag"] .stats b { color: var(--accent); font-weight: 700; }
+
+/* --- модалки: бумажная подложка (стекло в «Журнале» прозрачное) --- */
+html[data-style="mag"] .modal__card {
+  background: var(--d-0);
+  border: 1px solid var(--hair);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+}
+
+/* --- переключатель темы в настройках --- */
+html[data-style="mag"] .theme-seg { display: flex; gap: 20px; }
+html[data-style="mag"] .theme-btn {
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--grotesk); font-size: 14px; letter-spacing: 0;
+  color: var(--ink-dim); padding: 2px 0 6px;
+  border-bottom: 2px solid transparent;
+}
+html[data-style="mag"] .theme-btn:hover { color: var(--ink); }
+html[data-style="mag"] .theme-btn.active {
+  color: var(--ink); font-weight: 700; border-bottom-color: var(--accent);
 }
