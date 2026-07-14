@@ -1770,7 +1770,9 @@ html[data-style="mag"] .hero__code {
   letter-spacing: -0.045em;
   white-space: nowrap;
 }
-/* точка-статус — идеально круглая (глиф «.» у гротеска квадратный) */
+/* точка-статус — идеально круглая (глиф «.» у гротеска квадратный).
+   overflow:hidden обязателен: без него baseline инлайн-блока берётся от
+   невидимого глифа внутри и кружок улетает вверх от строки */
 html[data-style="mag"] .hero__code .dot {
   display: inline-block;
   width: 0.13em; height: 0.13em;
@@ -1778,6 +1780,9 @@ html[data-style="mag"] .hero__code .dot {
   border-radius: 50%;
   background: var(--accent);
   color: transparent;
+  overflow: hidden;
+  line-height: 0;
+  vertical-align: baseline;
 }
 html[data-style="mag"] .is-on .hero__code .dot { background: var(--ink); color: transparent; }
 html[data-style="mag"] .hero__name { display: none; }
@@ -1795,7 +1800,8 @@ html[data-style="mag"] .hero__sub {
 html[data-style="mag"] .connect {
   width: fit-content;
   margin-top: 56px;
-  padding: 4px 46px 12px 0;
+  padding: 4px 12px 10px 0;
+  gap: 0;
   border-bottom-width: 3px;
 }
 html[data-style="mag"] .connect__dot { display: none; }
@@ -1803,7 +1809,7 @@ html[data-style="mag"] .connect__label {
   font-family: var(--grotesk); font-size: 26px; font-weight: 700;
   letter-spacing: 0; text-transform: lowercase;
 }
-html[data-style="mag"] .connect__arrow { font-size: 24px; margin-left: 12px; }
+html[data-style="mag"] .connect__arrow { font-size: 24px; margin-left: 10px; }
 
 /* режимы: «весь трафик  только прокси  ·  сайты РФ — напрямую ✓» */
 html[data-style="mag"] .controls {
@@ -1814,7 +1820,7 @@ html[data-style="mag"] .seg { background: transparent; border: none; box-shadow:
 html[data-style="mag"] .seg .seg-btn {
   background: transparent; border: none; box-shadow: none; border-radius: 0;
   font-family: var(--grotesk); font-size: 16px; letter-spacing: 0;
-  text-transform: lowercase; color: var(--ink-dim); padding: 2px 0 7px;
+  text-transform: lowercase; color: var(--ink-dim); padding: 2px 0 4px;
 }
 html[data-style="mag"] .seg .seg-btn.active {
   background: transparent; box-shadow: none;
