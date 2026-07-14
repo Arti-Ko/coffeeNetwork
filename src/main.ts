@@ -260,10 +260,23 @@ function renderMeta() {
   $("routingState").textContent = settings.bypass_ru ? "RU-BYPASS" : "FULL TUNNEL";
 }
 
+/** «Журнал»: середина IPv4 скрыта точками — 185.107.•••.12 */
+function maskAddr(address: string): string {
+  const m = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  return m ? `${m[1]}.${m[2]}.•••.${m[4]}` : address;
+}
+
+/** Короткая журнальная метка протокола (hysteria2 → HY2). */
+function protoLabel(protocol: string): string {
+  const p = protocol.toLowerCase();
+  if (p === "hysteria2" || p === "hysteria" || p === "hy2") return "HY2";
+  return protocol.toUpperCase();
+}
+
 function renderServers() {
   const list = $("serverList");
   const empty = $("emptyState");
-  $("srvCount").textContent = String(servers.length).padStart(2, "0");
+  $("srvCount").textContent = `— ${String(servers.length).padStart(2, "0")}`;
   list.innerHTML = "";
   empty.hidden = servers.length > 0;
 
@@ -274,10 +287,12 @@ function renderServers() {
     if (s.id === status.active_server && status.running) li.classList.add("active-srv");
 
     li.innerHTML = `
-      <span class="srv__badge">${esc(s.protocol.toUpperCase())}</span>
       <div class="srv__body">
         <div class="srv__name">${esc(s.name)}</div>
-        <div class="srv__addr">${esc(s.address)}:${s.port}</div>
+      </div>
+      <div class="srv__side">
+        <span class="srv__badge">${esc(protoLabel(s.protocol))}</span>
+        <span class="srv__addr">${esc(maskAddr(s.address))}</span>
       </div>
       <div class="srv__actions">
         <button class="icon-btn bundle" title="Bundle (WiFi+Mobile)">⊕</button>
@@ -370,7 +385,7 @@ function renderCore() {
     startTraffic(); // poller drives the footer with live ↓/↑ speed
   } else {
     stopTraffic();
-    el.textContent = settings.bypass_ru ? "ожидание · РФ напрямую" : "ожидание · весь трафик";
+    el.textContent = ""; // «Журнал»: в простое футер пуст, как на макете
   }
 }
 
@@ -932,7 +947,9 @@ refresh();
 invoke<string>("app_version")
   .then((v) => {
     currentVersion = v;
-    $("issueTag").textContent = `сеть · v${v}`;
+    // «сеть · вып. 015» — номер выпуска из patch-части версии, в духе журнала
+    const patch = v.split(".")[2] ?? "0";
+    $("issueTag").textContent = `сеть · вып. ${patch.padStart(3, "0")}`;
     $("setVersion").textContent = v;
   })
   .catch(() => {});

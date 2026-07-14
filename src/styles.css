@@ -564,6 +564,7 @@ body {
   flex-direction: column;
   gap: 10px;
 }
+.import[hidden] { display: none; }
 .import textarea {
   resize: vertical;
   background: var(--recess);
@@ -1730,129 +1731,191 @@ html[data-style="pult"] .hero__code {
 html[data-style="pult"] .hero__name { font-size: 15px; font-weight: 500; }
 
 /* =========================================================================
-   ЖУРНАЛ — финальная полировка 1:1 с макетом (единственная тема)
+   ЖУРНАЛ — финальная вёрстка 1:1 со скрином (единственная тема)
    ========================================================================= */
-/* бренд: зерно + разрядка, справа — «сеть · v…» */
+html[data-style="mag"] .app {
+  grid-template-columns: 1fr 416px;
+  gap: 56px;
+  padding: 48px 56px 40px;
+}
+html[data-style="mag"] .ticket { padding: 0; }
+html[data-style="mag"] .panel { padding: 0; }
+
+/* бренд: золотое зерно-кружок + разрядка */
 html[data-style="mag"] .brand {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 12px;
   font-family: var(--grotesk);
-  font-size: 12px; letter-spacing: 0.3em; font-weight: 600; color: var(--ink);
+  font-size: 13px; letter-spacing: 0.32em; font-weight: 700; color: var(--ink);
 }
 .bean {
-  width: 20px; height: 20px; flex: none;
-  background: linear-gradient(135deg, #e8a33d, #c47c22);
-  border-radius: 50% 50% 50% 15%;
+  width: 22px; height: 22px; flex: none;
+  background: linear-gradient(135deg, #d99b3e, #c9862b);
+  border-radius: 50%;
   position: relative;
 }
 .bean::after {
-  content: ""; position: absolute; inset: 5px 8px;
-  border-radius: 3px; background: rgba(255, 255, 255, 0.55);
-  transform: rotate(24deg);
-}
-html[data-style="mag"] .issue { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.1em; }
-
-/* герой: слово 88px, серые строки, без линейки и меты */
-html[data-style="mag"] .hero__code { font-size: 88px; letter-spacing: -0.045em; }
-html[data-style="mag"] .hero__rule { display: none; }
-html[data-style="mag"] .meta { display: none; }
-html[data-style="mag"] .hero__name {
-  font-size: 15px; font-weight: 400; color: var(--ink-dim);
-  text-transform: lowercase; margin-top: 10px;
-}
-html[data-style="mag"] .hero__sub {
-  font-family: var(--grotesk); font-size: 14px; letter-spacing: 0;
-  text-transform: none; color: var(--ink-faint);
+  content: ""; position: absolute; inset: 6px 8px;
+  border-radius: 4px; background: rgba(255, 250, 240, 0.85);
+  transform: rotate(28deg);
 }
 
-/* кнопка-ссылка «подключить →» */
-html[data-style="mag"] .connect { width: fit-content; padding: 6px 4px 10px; }
-html[data-style="mag"] .connect__dot { display: none; }
-html[data-style="mag"] .connect__label {
-  font-family: var(--grotesk); font-size: 21px; font-weight: 600;
-  letter-spacing: 0; text-transform: lowercase;
-}
-html[data-style="mag"] .connect__arrow { font-size: 20px; margin-left: 10px; }
-
-/* панель серверов: оглавление с чернильной линейкой */
-html[data-style="mag"] .panel__head {
-  border-bottom: 1.5px solid var(--ink); padding-bottom: 10px;
-}
-html[data-style="mag"] .panel__head h2 {
-  font-size: 11px; letter-spacing: 0.26em; font-weight: 600;
-  color: var(--ink-dim); border: none;
-}
-html[data-style="mag"] .srv {
-  background: transparent; border: none; border-radius: 0; box-shadow: none;
-  border-bottom: 1px solid var(--hair); padding: 14px 2px;
-}
-html[data-style="mag"] .srv.selected {
-  background: transparent; border-color: var(--hair);
-}
-html[data-style="mag"] .srv__name {
-  font-family: var(--grotesk); font-size: 19px; font-weight: 600;
-  text-transform: lowercase; letter-spacing: -0.01em;
-}
-html[data-style="mag"] .srv.selected .srv__name::after {
-  content: " ●"; color: var(--accent); font-size: 11px; vertical-align: 2px;
-}
-html[data-style="mag"] .srv__addr { font-size: 11px; color: var(--ink-faint); }
-html[data-style="mag"] .srv__badge {
-  background: transparent; border: none; padding: 0;
-  font-size: 11px; letter-spacing: 0.14em; color: var(--ink-faint);
-}
-
-/* =========================================================================
-   ЖУРНАЛ — фиксы по скринам: слово целиком, текстовые режимы,
-   нумерация серверов, настройки в ссылках
-   ========================================================================= */
-html[data-style="mag"] .app { grid-template-columns: 1.08fr 430px; }
-html[data-style="mag"] .hero { margin-top: auto; }
+/* герой: жирное слово-статус, точка карамельная */
+html[data-style="mag"] .hero { margin-top: auto; padding: 0; }
 html[data-style="mag"] .hero__code {
-  font-size: clamp(48px, 9vw, 92px); line-height: 0.95; letter-spacing: -0.05em;
+  font-size: clamp(56px, 9vw, 108px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
 }
 html[data-style="mag"] .hero__code .dot { color: var(--accent); }
 html[data-style="mag"] .is-on .hero__code .dot { color: var(--ink); }
 html[data-style="mag"] .hero__name { display: none; }
+html[data-style="mag"] .hero__rule { display: none; }
+html[data-style="mag"] .meta { display: none; }
 html[data-style="mag"] .hero__sub {
-  white-space: normal; max-width: 360px; line-height: 1.55; font-size: 15px;
+  font-family: var(--grotesk);
+  white-space: normal; max-width: 380px;
+  margin-top: 26px;
+  font-size: 16.5px; line-height: 1.55; letter-spacing: 0;
+  text-transform: none; color: var(--ink-dim);
 }
 
-/* режимы и РФ-обход — текстовая строка, без коробок */
-html[data-style="mag"] .controls {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; margin-top: 20px;
+/* «подключить →» — ссылка с длинным карамельным подчёркиванием */
+html[data-style="mag"] .connect {
+  width: fit-content;
+  margin-top: 56px;
+  padding: 4px 46px 12px 0;
+  border-bottom-width: 3px;
 }
-html[data-style="mag"] .seg { background: transparent; border: none; box-shadow: none; padding: 0; gap: 16px; }
+html[data-style="mag"] .connect__dot { display: none; }
+html[data-style="mag"] .connect__label {
+  font-family: var(--grotesk); font-size: 26px; font-weight: 700;
+  letter-spacing: 0; text-transform: lowercase;
+}
+html[data-style="mag"] .connect__arrow { font-size: 24px; margin-left: 12px; }
+
+/* режимы: «весь трафик  только прокси  ·  сайты РФ — напрямую ✓» */
+html[data-style="mag"] .controls {
+  display: flex; flex-direction: row; align-items: baseline; flex-wrap: wrap;
+  gap: 8px 22px; margin-top: 34px; margin-bottom: auto;
+}
+html[data-style="mag"] .seg { background: transparent; border: none; box-shadow: none; padding: 0; gap: 22px; }
 html[data-style="mag"] .seg .seg-btn {
   background: transparent; border: none; box-shadow: none; border-radius: 0;
-  font-family: var(--grotesk); font-size: 14px; letter-spacing: 0;
-  text-transform: lowercase; color: var(--ink-dim); padding: 2px 0 6px;
+  font-family: var(--grotesk); font-size: 16px; letter-spacing: 0;
+  text-transform: lowercase; color: var(--ink-dim); padding: 2px 0 7px;
 }
 html[data-style="mag"] .seg .seg-btn.active {
   background: transparent; box-shadow: none;
   color: var(--ink); font-weight: 700; border-bottom: 2px solid var(--accent);
 }
 html[data-style="mag"] .switch-row {
-  background: transparent; border: none; box-shadow: none; padding: 0; width: auto; gap: 10px;
+  background: transparent; border: none; box-shadow: none;
+  padding: 0; width: auto; gap: 14px; align-items: baseline;
+}
+html[data-style="mag"] .switch-row::before {
+  content: "·"; color: var(--ink-faint); font-size: 16px;
 }
 html[data-style="mag"] .switch-row__txt strong {
-  font-family: var(--grotesk); font-size: 14px; font-weight: 400;
-  letter-spacing: 0; text-transform: lowercase; color: var(--ink-dim);
+  font-family: var(--grotesk); font-size: 16px; font-weight: 400;
+  letter-spacing: 0; text-transform: none; color: var(--ink-dim);
+}
+html[data-style="mag"] .switch-row:has(input:checked) .switch-row__txt strong::after {
+  content: " ✓";
 }
 html[data-style="mag"] .switch-row small { display: none; }
+html[data-style="mag"] .switch { display: none; }
+
+/* футер: без линейки, в простое пуст (текст ставит main.ts) */
+html[data-style="mag"] .ticket__foot {
+  border-top: none; padding-top: 0; margin-top: 24px;
+  font-size: 11px; color: var(--ink-faint);
+}
 
 /* плавающая шестерёнка не нужна — «настройки» в нижних ссылках */
 html[data-style="mag"] .settings-btn { display: none; }
 
-/* серверы: номер, имя, протокол справа; действия — по ховеру */
-html[data-style="mag"] .srv-list { counter-reset: srv; }
-html[data-style="mag"] .srv { display: flex; align-items: baseline; gap: 14px; }
+/* правая колонка: «сеть · вып. 042» сверху, оглавление с чернильной линейкой */
+html[data-style="mag"] .panel__issue {
+  text-align: right;
+  font-size: 12px; letter-spacing: 0.28em;
+  color: var(--ink-faint);
+  margin-bottom: 40px;
+}
+html[data-style="mag"] .panel__head {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 12px; margin-bottom: 0;
+}
+html[data-style="mag"] .panel__head h2 {
+  font-size: 12px; letter-spacing: 0.3em; font-weight: 600;
+  color: var(--ink-dim); border: none; gap: 8px;
+}
+html[data-style="mag"] .count {
+  font-size: 12px; letter-spacing: 0.3em; color: var(--ink-dim);
+}
+
+/* серверы: номер · имя · протокол и маскированный IP справа */
+html[data-style="mag"] .srv-list { border-top: none; counter-reset: srv; }
+html[data-style="mag"] .srv {
+  position: relative;
+  display: flex; align-items: baseline; gap: 18px;
+  background: transparent; border: none; border-radius: 0; box-shadow: none;
+  border-bottom: 1px solid var(--hair);
+  padding: 24px 2px;
+}
+html[data-style="mag"] .srv:hover { background: transparent; padding-left: 2px; }
+html[data-style="mag"] .srv.selected,
+html[data-style="mag"] .srv.active-srv { background: transparent; box-shadow: none; }
 html[data-style="mag"] .srv::before {
   counter-increment: srv; content: counter(srv, decimal-leading-zero);
-  font-family: var(--mono); font-size: 12px; color: var(--ink-faint); flex: none;
+  font-family: var(--mono); font-size: 13px; color: var(--ink-faint); flex: none;
 }
 html[data-style="mag"] .srv.selected::before { color: var(--accent); font-weight: 700; }
 html[data-style="mag"] .srv__body { flex: 1; min-width: 0; }
-html[data-style="mag"] .srv__badge { order: 3; margin-left: auto; flex: none; }
-html[data-style="mag"] .srv__actions { order: 4; opacity: 0; transition: opacity 150ms var(--ease); }
+html[data-style="mag"] .srv__name {
+  font-family: var(--grotesk); font-size: 27px; font-weight: 500;
+  text-transform: lowercase; letter-spacing: -0.015em; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-style="mag"] .srv.selected .srv__name { color: var(--ink); font-weight: 700; }
+html[data-style="mag"] .srv.selected .srv__name::after {
+  content: " ●"; color: var(--accent); font-size: 13px; vertical-align: 4px;
+}
+html[data-style="mag"] .srv__side {
+  flex: none; margin-left: auto;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 7px;
+  font-family: var(--mono);
+}
+html[data-style="mag"] .srv__badge {
+  background: transparent; border: none; padding: 0; min-width: 0;
+  font-size: 12px; letter-spacing: 0.22em; color: var(--ink-dim);
+}
+html[data-style="mag"] .srv__addr {
+  font-size: 12px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 0;
+}
+/* действия — поверх строки по ховеру, чтобы протокол оставался у края */
+html[data-style="mag"] .srv__actions {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  background: var(--d-0); padding-left: 10px;
+  opacity: 0; transition: opacity 150ms var(--ease);
+}
 html[data-style="mag"] .srv:hover .srv__actions,
 html[data-style="mag"] .srv:focus-within .srv__actions { opacity: 1; }
+
+/* нижние ссылки: «+ добавить  игнор  лог  конфиг  настройки» справа */
+html[data-style="mag"] .tools {
+  justify-content: flex-end; align-items: baseline; gap: 26px;
+  border-top: none; margin-top: 20px; padding-top: 14px;
+}
+html[data-style="mag"] .tools .btn-ghost {
+  font-family: var(--grotesk); font-size: 15.5px; letter-spacing: 0;
+  color: var(--ink-dim); padding: 2px 0 6px;
+  background: transparent;
+  border: none; border-bottom: 1.5px solid var(--ink-faint); border-radius: 0;
+}
+html[data-style="mag"] .tools .btn-ghost:hover {
+  color: var(--ink); border-color: var(--ink); background: transparent;
+}
+html[data-style="mag"] .tools #importToggle {
+  color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+}

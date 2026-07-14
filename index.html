@@ -33,7 +33,6 @@
             <span class="bean" aria-hidden="true"></span>
             <span class="brand__word">COFFEE NETWORK</span>
           </div>
-          <span class="issue mono" id="issueTag">сеть</span>
         </header>
 
         <div class="headgrid mono">
@@ -79,8 +78,8 @@
 
         <div class="controls">
           <div class="seg mono" role="group" aria-label="Режим перехвата трафика">
-            <button class="seg-btn" data-mode="system_proxy">только прокси</button>
             <button class="seg-btn" data-mode="tun">весь трафик</button>
+            <button class="seg-btn" data-mode="system_proxy">только прокси</button>
           </div>
 
           <label class="switch-row mono">
@@ -100,9 +99,10 @@
         <span class="cross cross--tl"></span>
         <span class="cross cross--br"></span>
 
+        <div class="panel__issue mono" id="issueTag">сеть</div>
+
         <div class="panel__head">
-          <h2 class="mono">СЕРВЕРЫ<span class="count" id="srvCount">00</span></h2>
-          <button id="importToggle" class="btn-ghost mono">+ добавить</button>
+          <h2 class="mono">СЕРВЕРЫ<span class="count" id="srvCount">— 00</span></h2>
         </div>
 
         <div class="import" id="importBox" hidden>
@@ -124,6 +124,7 @@
         </p>
 
         <div class="tools mono">
+          <button id="importToggle" class="btn-ghost">+ добавить</button>
           <button id="exclToggle" class="btn-ghost">игнор<span id="exclCount" class="tool-count"></span></button>
           <button id="logToggle" class="btn-ghost">лог</button>
           <button id="configToggle" class="btn-ghost">конфиг</button>
